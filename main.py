@@ -1,14 +1,11 @@
-import asyncio
-import json
-import time
-
-from settings import *
-from datetime import datetime
-import aiogram
-from aiogram import types
 from aiogram import executor, Dispatcher, Bot
-from memes import Api, ImageReader
 from localbase import DataBase, TABLES
+from memes import Api, ImageReader
+from settings import *
+import logging
+import aiogram
+import asyncio
+import time
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
@@ -17,14 +14,15 @@ DataBase = DataBase()
 Api = Api()
 
 DataBase.createTables(TABLES)
-DataBase.WriteChannels(Api.getChannels())
 
 links_dict = dict()
 channels = Api.getChannels()
-for channel in Api.getChannels():
+for ch_id, ch_name in Api.getChannels():
     for name in channels_links:
-        if name in channel[1]:
-            links_dict[channel[0]] = channels_links[name]
+        if name in ch_name:
+            links_dict[ch_id] = channels_links[name]
+            DataBase.WriteChannels(ch_id, ch_name, channels_links[name])
+DataBase.WriteChannels('featured', 'featured', favorite_id)
 
 
 smiles = [1200, 2973, 1802, 3180, 3380, 1350, 0, 0, 0]
@@ -34,13 +32,15 @@ for i in Api.smiles_filter.keys():
     count += 1
 
 
+
+
 async def fill_channels():
     best_memes = Api.BestPosts()
     length = list()
     for channel_id in best_memes:
         length.append(len(best_memes[channel_id]))
 
-    for post_num in range(0, max(length)):
+    for post_num in range(max(length)):
         print('\ncurrent post = ', post_num)
         post_time = time.time()
         for channel_id in best_memes.keys():
@@ -53,15 +53,15 @@ async def fill_channels():
                         image = ImageReader(post)
                         if image.watermark():
                             timeout = abs(2.5-float(time.time() - start_time).__round__(2))
-                            print('\t\ttimeout', timeout)
+                            logging.warning('\t\ttimeout', timeout)
                             if timeout < 2.5:
                                 time.sleep(timeout)
-                            print(f'\t\tSEND time = {float(time.time() - start_time).__round__(2) * 1000} ms')
+                            logging.info(f'\t\tSEND time = {float(time.time() - start_time).__round__(2) * 1000} ms')
                             await bot.send_photo(links_dict[channel_id], image.Crop())
-                            print(f'\t\tSENDED time = {float(time.time() - start_time).__round__(2) * 1000} ms')
+                            logging.info(f'\t\tSENDED time = {float(time.time() - start_time).__round__(2) * 1000} ms')
 
                         else:
-                            print('\t\t\t\t\t\t\tWITHOUT WATERMARK')
+                            logging.info('\t\t\t\t\t\t\tWITHOUT WATERMARK')
                             await bot.send_photo(links_dict[channel_id], post.url, post.title)
 
                     elif post_filetype in ('mp4',):
@@ -70,8 +70,9 @@ async def fill_channels():
                         await bot.send_animation(links_dict[channel_id], post.url, caption=post.title)
                     else:
                         print(post.type, post.url)
+                    DataBase.Last_1000_id('set', channel_id, post.id)
                 except aiogram.exceptions.RetryAfter as err:
-                    print('\t\t\t\t\t\tCATCHED', err.args, err.timeout)
+                    logging.info('\t\t\t\t\t\tCATCH FLOOD CONTROL', err.args, err.timeout)
                     time.sleep(err.timeout)
                     post_num = post_num - 1
                 except:
@@ -120,9 +121,15 @@ async def fill_favorite():
         except:
             PrintException()
 
+async def CheckUpdates():
+    all_channels = DataBase.ReadChannels()
+    for ch_name, ch_id in all_channels:
+        last_post = DataBase.lastUpdate('get', ch_id)
+
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(fill_favorite())
-    loop.run_until_complete(fill_channels())
-    executor.start_polling(dp)
+    print('thats all')
+    # loop.run_until_complete(fill_favorite())
+    # loop.run_until_complete(fill_channels())
+    #executor.start_polling(dp)

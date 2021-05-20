@@ -8,6 +8,7 @@ import pytesseract
 
 from localbase import DataBase
 import requests
+import logging
 import time
 import cv2
 
@@ -37,13 +38,11 @@ class ImageReader:
         start_time = time.time()
         img_main = Image.open(self.path)
         img_template = Image.open('img/temp.jpg')
-        t_width,  t_height = img_template.size
-        width,  height = img_main.size
+        t_width, t_height = img_template.size
+        width, height = img_main.size
         box = (width - t_width - 50, height - t_height - 50, width, height)
         img_main.crop(box).save('img/corner.jpg')
         img_main = cv2.imread('img/corner.jpg')
-        # cv2.imshow('cropped main', img_main)
-        # cv2.waitKey(0)
         img_gray = cv2.cvtColor(img_main, cv2.COLOR_BGR2GRAY)
 
         img_template = cv2.imread('img/temp.jpg')
@@ -55,10 +54,10 @@ class ImageReader:
         counter = 0
         for pt in points:
             counter += 1
-            cv2.rectangle(img_main, pt, (pt[0]+w, pt[1]+ h), (255, 0, 0), 4)
+            cv2.rectangle(img_main, pt, (pt[0] + w, pt[1] + h), (255, 0, 0), 4)
             break
         if counter == 1:
-            print(f'\t\tWATERMARK time = {float(time.time() - start_time).__round__(2) * 1000} ms')
+            logging.info(f'\t\tWATERMARK time = {float(time.time() - start_time).__round__(2) * 1000} ms')
 
             return True
         return False
@@ -69,8 +68,7 @@ class ImageReader:
         box = (0, 0, width, height - 20)
         crop_img = self.pic.crop(box)
         crop_img.save('img/cropped.jpg', quality=90)
-        print(f'\t\tCROP time = {float(time.time() - start_time).__round__(2) * 1000} ms')
-
+        logging.info(f'\t\tCROP time = {float(time.time() - start_time).__round__(2) * 1000} ms')
         return open('img/cropped.jpg', 'rb')
 
 
@@ -109,11 +107,8 @@ class Api:
     def getPosts(self, channel_id: str, limit: int = 1):
         channel_posts_url = self.channels_url + f"/{channel_id}/items?limit={limit}"
         posts = requests.get(channel_posts_url, headers=self.headers)
-        print('code', posts.status_code)
         if posts.status_code == 200:
-            print(len(posts.json()['data']['content']['items']))
             return 1
-        print('code', posts.status_code)
         return list()
 
     def getFeatures(self):
@@ -199,19 +194,46 @@ class Api:
                         self.guessed.append(channel_num)
                 else:
                     self.guessed.append(channel_num)
-                    print(f'for {channel_info} done')
                 filtered.reverse()
                 best_memes[channel_info[0]] = filtered[:1000]  # dict[channel] = list of top 1000 posts (Post objects)
-                print(f'category {channel_info[1]} filtered in {float(time.time() - start_time).__round__(2)} s')
-        print(f'total_time = {float(time.time() - begin_time).__round__(2)} s', time.time(), start_time)
+                logging.info(f'Category {channel_info[1]} filtered in {float(time.time() - start_time).__round__(2)} s')
+        logging.info(f'BestPosts filtered in {float(time.time() - begin_time).__round__(2)} seconds')
         return best_memes
 
-    def UpdatePost(self, channel):
-        check_upd_url = f"https://api.ifunny.mobi/v4/channels/{channel}/items?limit=20"
-        start_time = time.time()
+    def UpdatePost(self, channel, last_id):
+
+        all_updates = list()
+        searching: bool = False
+        check_upd_url = f"https://api.ifunny.mobi/v4/channels/{channel}/items?limit=1"
+        if channel == 'featured':
+            check_upd_url = f'https://api.ifunny.mobi/v4/feeds/featured?limit=1'
         last_posts = requests.get(check_upd_url, headers=self.headers)
         if last_posts.status_code == 200:
-            posts = [Post(item, channel) for item in last_posts.json()['data']['content']['items']]
+            content = last_posts.json()['data']['content']
+            next_page = content['paging']['cursors']['next']
+            items = content['items']
+
+            if items[0]['id'] == last_id:
+                print('no need to update')
+                return
+            else:
+                all_updates.append(Post(items[0], channel))
+                while searching is False:
+                    r_link = f"https://api.ifunny.mobi/v4/channels/{channel}/items?limit=100&next={next_page}"
+                    if channel == 'featured':
+                        r_link = f'https://api.ifunny.mobi/v4/feeds/featured?limit=100&next={next_page}'
+                    last_posts = requests.get(r_link, headers=self.headers).json()
+                    content = last_posts['data']['content']
+                    items = content['items']
+                    next_page = content['paging']['cursors']['next']
+                    for item in items:
+                        if item['id'] != last_id:
+                            all_updates.append(Post(item, channel))
+                        else:
+                            searching = True
+                            all_updates.reverse()
+                            return all_updates
+
 
 
 

@@ -1,5 +1,8 @@
 import sqlite3
 from settings import PrintException
+from typing import Optional
+from aiogram.types import base
+import logging
 
 TABLES = dict()
 
@@ -7,21 +10,21 @@ TABLES['channels'] = '''
                      CREATE TABLE "channels" (
                         "id"	INTEGER NOT NULL,
                         "name"	varchar(30) NOT NULL,
-                        "channel_id"	varchar(15) NOT NULL UNIQUE,
+                        "channel_id" varchar(15) UNIQUE,
+                        "channel_telegram" varchar(20) UNIQUE,
+                        "last_1000_id"  varchar(20) UNIQUE,
+                        "last_update_id" varchar(20) UNIQUE,
                         PRIMARY KEY("id" AUTOINCREMENT)
+                        
                         );
                      '''
 
-TABLES['telegram_channel'] = '''
-                     CREATE TABLE "telegram_channel" (
-                        "id"	INTEGER NOT NULL,
-                        "name"	varchar(30) NOT NULL,
-                        "link"	varchar(50) NOT NULL UNIQUE,
-                        PRIMARY KEY("id" AUTOINCREMENT)
-                        );
-                     '''
 
-class DataBase():
+class MyError(Exception):
+    pass
+
+
+class DataBase:
     def __init__(self):
         try:
             self.name = 'memes'
@@ -40,9 +43,9 @@ class DataBase():
         for table in tables:
             try:
                 self.cursor.execute(tables[table])
-                print('Create table ok')
+                logging.info(f'Table {table} successfully created')
             except sqlite3.Error as err:
-                print('Create table ERR', err)
+                logging.error(f'createTables {err} on {table} ')
                 result = False
             finally:
                 self.cursor.close()
@@ -50,27 +53,28 @@ class DataBase():
 
         return result
 
-    def WriteChannels(self, channel_list):
-        cmd = "insert into channels (channel_id, name) values (?, ?)"
+    def WriteChannels(self, ch_id, ch_name, channel_telegram):
+        cmd = "insert into channels (channel_id, name, channel_telegram) values (?, ?, ?)"
+        exc_cmd = f"update channels set channel_id = '{ch_id}', name = '{ch_name}', " \
+                  f"channel_telegram = '{channel_telegram}' where channel_telegram = '{channel_telegram}'"
         result = True
 
         self.cursor = self.db.cursor()
-        for ch_id, ch_name in channel_list:
-            try:
-                self.cursor.execute(cmd, (ch_id, ch_name,))
-                self.db.commit()
-
-            except sqlite3.Error as err:
-                if 'UNIQUE constraint failed' and 'channel_id' in err.args[0]:
-                    pass
-                    #  print(f'This channels already exists : {ch_name, ch_id}')
+        try:
+            self.cursor.execute(cmd, (ch_id, ch_name, channel_telegram,))
+            self.db.commit()
+        except sqlite3.Error as err:
+            if 'UNIQUE constraint failed' in err.args[0]:
+                if 'channel_id' in err.args[0]:
+                    logging.warning(f'WriteChannels :{ch_name}({ch_id}) already exists')
+                elif 'channel_telegram' in err.args[0]:
+                    self.cursor.execute(exc_cmd)
+                    self.db.commit()
                 else:
-                    result = False
-                    print(err)
-
-            except Exception:
+                    logging.error(f'WriteChannels : {err}')
+            else:
                 result = False
-                PrintException()
+                logging.error(f'WriteChannels : {err}')
 
         self.cursor.close()
         return result
@@ -87,7 +91,7 @@ class DataBase():
 
         except sqlite3.Error as err:
             result = list()
-            print(err)
+            logging.error(err)
 
         except Exception:
             result = list()
@@ -97,3 +101,76 @@ class DataBase():
         finally:
             self.cursor.close()
             return result
+
+    def Last_1000_id(self, flag, channel_id: str, last_id: Optional[base.String] = None):
+        """
+
+        :param channel_id:
+        :param last_id:
+        :param flag: set = write and update last sended post ID
+                   :get = read end use last ID that wrote in DB
+        :return: set: True or False
+                 get: last ID from DB
+        """
+        cmd_set = f"update channels set `last_1000_id` = '{last_id}' where `channel_id` = '{channel_id}'"
+        cmd_get = f"select `last_1000_id` from channels where `channel_id` = '{channel_id}'"
+        if flag == 'set':
+            try:
+                self.cursor = self.db.cursor()
+                self.cursor.execute(cmd_set)
+                self.db.commit()
+                self.cursor.close()
+                return True
+            except sqlite3.Error as err:
+                logging.error(err)
+                return False
+        elif flag == 'get':
+            try:
+                self.cursor = self.db.cursor()
+                self.cursor.execute(cmd_get)
+                record = self.cursor.fetchone()
+
+                self.cursor.close()
+                return record[0]
+            except sqlite3.Error as err:
+                logging.error(f' Last_1000_id: {err}')
+                return 0
+        else:
+            raise MyError("Wrong flag value, use 'get or 'set")
+
+    def lastUpdate(self, flag, channel_id: str, last_id: Optional[base.String] = None):
+        """
+
+        :param last_id:
+        :param channel_id: choose channel to working with
+        :param flag: set = write and update last sended post ID
+                   :get = read end use last ID that wrote in DB
+        :return: set: True or False
+                 get: last ID from DB
+        :return:
+        """
+
+        cmd_get = f"select last_update_id from channels where `channel_id` = '{channel_id}'"
+        cmd_set = f"update channels set `last_update_id` = '{last_id}' where `channel_id` = '{channel_id}'"
+        if flag == 'set':
+            try:
+                self.cursor = self.db.cursor()
+                self.cursor.execute(cmd_set)
+                self.db.commit()
+                self.cursor.close()
+                return True
+            except sqlite3.Error as err:
+                logging.error(err)
+                return False
+        elif flag == 'get':
+            try:
+                self.cursor = self.db.cursor()
+                self.cursor.execute(cmd_get)
+                record = self.cursor.fetchone()
+                self.cursor.close()
+                return record[0]
+            except sqlite3.Error as err:
+                logging.error(f' lastUpdate: {err}')
+                return 0
+        else:
+            raise MyError("Wrong flag value, use 'get or 'set")
