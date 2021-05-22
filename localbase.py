@@ -3,6 +3,7 @@ from settings import PrintException
 from typing import Optional
 from aiogram.types import base
 import logging
+from settings import channels_links
 
 TABLES = dict()
 
@@ -18,6 +19,16 @@ TABLES['channels'] = '''
                         
                         );
                      '''
+for name in channels_links:
+    TABLES[name] = f'''
+                        CREATE TABLE "{name}" (
+                        "id"	INTEGER NOT NULL,
+                        "message_id" varchar(20) UNIQUE,
+                        "post_id"	varchar(30) NOT NULL,
+                        "post_url" varchar(15) UNIQUE,
+                        "post_type" varchar(20) UNIQUE,
+                        PRIMARY KEY("id" AUTOINCREMENT)
+                    '''
 
 
 class MyError(Exception):
@@ -174,3 +185,22 @@ class DataBase:
                 return 0
         else:
             raise MyError("Wrong flag value, use 'get or 'set")
+
+    def AddPost(self, message_id, post, channel_name: str):
+
+        cmd = f'insert into {channel_name} (message_id, post_id, post_url, post_type) values (?, ?, ?, ?)'
+        #  exc_cmd = f'update {channel_name} set message_id = {message_id} where post_id = {post.id}'
+        try:
+            self.cursor = self.db.cursor()
+            params = (message_id, post.id, post.url, post.type)
+            self.cursor.execute(cmd, params)
+            self.db.commit()
+            self.cursor.close()
+            return True
+        except sqlite3.Error as err:
+            if 'UNIQUE constraint failed' in err.args[0]:
+                logging.warning(f'Duplicate row in AddPost: {err.args}')
+                self.cursor.close()
+                return False
+            else:
+                raise sqlite3.Error

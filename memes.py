@@ -20,7 +20,7 @@ class Post:
         self.title: str = item['title']
         self.url: str = item['url']
         self.channel = channel
-        self.publish_at = item['publish_at']
+        self.publish_at = datetime.fromtimestamp(item['publish_at'])
         self.link = item['link']
         # self.watermark = item[]
 
@@ -157,7 +157,7 @@ class Api:
             start_time = time.time()
             filtered = list()
 
-            if channel_num not in self.guessed:
+            if channel_num not in self.guessed and channel_num == 7:
                 posts = requests.get(f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1",
                                      headers=self.headers).json()
                 content = posts['data']['content']
@@ -234,7 +234,17 @@ class Api:
                             all_updates.reverse()
                             return all_updates
 
-
-
-
-
+    def test_time_header(self):
+        headers = self.headers
+        headers['If-Modified-Since'] = datetime.now().strftime('%a, %d %b %Y %H:%M:%S GMT')  # EXAMPLE FORMAT, 08 Dec 2020 19:54:20 GMT
+        print(headers['If-Modified-Since'])
+        url = f'https://api.ifunny.mobi/v4/channels/5ed63a9f0c26185b832ccc3c/items'
+        my_request = requests.get(url, headers=headers)
+        if my_request.status_code == 200:
+            posts = my_request.json()
+            items = posts['data']['content']['items']
+            for item in items:
+                publ = datetime.fromtimestamp(item['publish_at'])
+                print(publ > datetime.now())
+            return
+        print(my_request.status_code)
