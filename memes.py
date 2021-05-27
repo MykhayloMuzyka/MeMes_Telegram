@@ -12,12 +12,9 @@ import logging
 import time
 import cv2
 
+import logging
 
-class PostList(list):
-    def index(self, value, **kwargs):
-        for i, obj in enumerate(self):
-            if obj.id == value:
-                return i
+logging.basicConfig(level=logging.INFO)
 
 
 class Post:
@@ -111,12 +108,7 @@ class Api:
             'User-Agent': 'iDaPrikol/6.15.4(1119163) Android/6.0 (Xiaomi; Redmi Note 4; Xiaomi)',
         }
         self.channels_url = 'https://api.ifunny.mobi/v4/channels'
-        self.guessed = []
-        channels = DataBase.ReadChannels(DataBase())
-        self.smiles_filter = dict()
-        self.feature_smiles = 200
-        for channel in channels:
-            self.smiles_filter[channel[1]] = 700
+
         self.lower_limit = None
 
     def getChannels(self):
@@ -147,129 +139,87 @@ class Api:
             return all_posts
         return False
 
-    def getFeatures(self):
-        """
-        Get Top 1000 posts from Features
-        :return: list of Post()
-        """
-        best_featured = list()
-        features_url = f'https://api.ifunny.mobi/v4/feeds/featured?limit=1'
-        features = requests.get(features_url, headers=self.headers)
-        posts = features.json()
-        if features.status_code == 200:
-            content = posts['data']['content']
-            items = content['items']
-            next_page = content['paging']['cursors']['next']
-            count = len(items)
-            for item in items:
-                if item['num']['smiles'] >= self.feature_smiles:
-                    best_featured.append(Post(item, 'featured'))
-            while content['paging']['hasNext'] is not False:
-                posts = requests.get(
-                    f"https://api.ifunny.mobi/v4/feeds/featured?limit=500&next={next_page}",
-                    headers=self.headers).json()
-                content = posts['data']['content']
-                items = content['items']
-                next_page = content['paging']['cursors']['next']
-                for item in items:
-                    if item['num']['smiles'] >= self.feature_smiles or len(items) < 900:
-                        best_featured.append(Post(item, 'featured'))
-                count += len(items)
-            print('featured', '=', "Всего:", count, 'Отфильтрованные: ', len(best_featured),
-                  f'При {self.feature_smiles} лайков.')
-            if count >= 1000:
-                if 1000 > len(best_featured) or len(best_featured) > 1100:
-                    k = int(count / (len(best_featured) * 0.05 + 1))
-                    if len(best_featured) > 1100:
-                        self.feature_smiles += k
-                    elif len(best_featured) < 1000:
-                        self.feature_smiles -= k
-                    self.getFeatures()
-            best_featured.reverse()
-            return best_featured[:1000]
-        return list()
-
     def BestPosts(self):
         """
         Filter every channel in API to get Top 1000 best posts by smiles
-        :return: list of Post()
+        :return: dict() : dict[channel_id] = list(Post(), Post(), ...)
         """
         begin_time = time.time()
         channels = self.getChannels()
-        best_memes = dict()
-
+        channels.append(['featured', 'featured'])
+        result = dict()
         for channel_num, channel_info in enumerate(channels):
+
             skip = True
-            print(channel_num)
             start_time = time.time()
-            filtered = list()
+            all_posts = list()
+
             for name in channels_links:
                 if name in channel_info[1]:
                     skip = False
                     break
 
-            if channel_num not in self.guessed and not skip and channel_num == 5:
-                posts = requests.get(f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1",
-                                     headers=self.headers).json()
+            if not skip and channel_num == 6:
+                url = f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1"
+                if channel_info[1] == 'featured':
+                    url = f'https://api.ifunny.mobi/v4/feeds/featured?limit=1'
+
+                posts = requests.get(url, headers=self.headers).json()
                 content = posts['data']['content']
 
                 next_page = content['paging']['cursors']['next']
                 items = content['items']
+                all_posts.append(Post(items[0], channel_info[0]))
 
-                count = len(items)
-                for item in items:
-                    if item['num']['smiles'] >= self.smiles_filter[channel_info[0]]:
-                        filtered.append(Post(item, channel_info[0]))
+                requests_time = 0
                 while content['paging']['hasNext'] is not False:
-                    posts = requests.get(
-                        f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1000&next={next_page}",
-                        headers=self.headers).json()
+                    url = f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1000&next={next_page}"
+                    if channel_info[1] == 'featured':
+                        url = f"https://api.ifunny.mobi/v4/feeds/featured?limit=1000&next={next_page}"
+
+                    start_request = time.time()
+                    posts = requests.get(url, headers=self.headers).json()
+                    requests_time += time.time() - start_request
+
                     content = posts['data']['content']
                     items = content['items']
                     next_page = content['paging']['cursors']['next']
-                    for item in items:
-                        if item['num']['smiles'] >= self.smiles_filter[channel_info[0]] or len(items) < 900:
-                            filtered.append(Post(item, channel_info[0]))
-                    count += len(items)
-                print(channel_info[0], '= ', "Всего:", count, 'Отфильтрованные: ', len(filtered),
-                      f'При {self.smiles_filter[channel_info[0]]} лайков.')
-                if count > 1000:
-                    if 1000 > len(filtered) or len(filtered) > 1100:
-                        k = int(count / (len(filtered) * 0.05 + 1))
-                        if len(filtered) > 1100:
-                            self.smiles_filter[channel_info[0]] += k
-                        elif len(filtered) < 1000:
-                            self.smiles_filter[channel_info[0]] -= k
-                        self.BestPosts()
-                    else:
-                        self.guessed.append(channel_num)
-                else:
-                    self.guessed.append(channel_num)
-                filtered.reverse()
-                filtered = sorted(filtered, key=lambda meme: meme.publish_at)
-                best_memes[channel_info[0]] = filtered[:1000]  # dict[channel] = list of top 1000 posts (Post objects)
+
+                    filtered = list(Post(item, channel_info[0]) for item in items)
+                    all_posts += filtered
+
+                best_posts = sorted(all_posts, key=lambda post: post.smiles, reverse=True)
+                best_posts = best_posts[:1000]
+                from_old_to_new = sorted(best_posts, key=lambda post: post.publish_at, reverse=True)
+                result[channel_info[0]] = from_old_to_new
+
                 logging.info(f'Category {channel_info[1]} filtered in {float(time.time() - start_time).__round__(2)} s')
+                logging.info(f'Category {channel_info[1]}  requests time = {float(requests_time).__round__(2)} s, '
+                             f'code time = {(float(time.time() - start_time) - float(requests_time)).__round__(2)}')
+
         logging.info(f'BestPosts filtered in {float(time.time() - begin_time).__round__(2)} seconds')
-        return best_memes
+        return result
 
     def UpdatePost(self, channel_id, channel_name, lower_limit, upper_limit, tries):
         """
         Сhecks current channel for new posts since the last one written to the database.
-        :param upper_limit:
-        :param lower_limit:
-        :param last_check_time: Value in Datetime type, that shows the last moment when channel was updated
+        :param tries: set this parameter to Zero, its for recursion searaching of result
+        :param channel_name: channel name from DB that you want to update
+        :param upper_limit: latest moment for  post publish date (real time usually)
+        :param lower_limit: earliest moment for  post publish date (previous message sending usually)
         :param channel_id: ID from API for the category this post is from or 'featured'
-        :return: if channel needs update return list() of Post(), else return empty list()
+
+        :return: if channel needs update return list() of Post() with best post from last period, else return empty list()
         """
+        logging.info(f'{channel_name}: Searching for new post since {lower_limit} to {upper_limit}')
+
         right_period = list()
         best_post = None
+
         check_upd_url = f"https://api.ifunny.mobi/v4/channels/{channel_id}/items?limit=1000"
         if channel_id == 'featured':
             check_upd_url = f'https://api.ifunny.mobi/v4/feeds/featured?limit=1000'
         all_posts = requests.get(check_upd_url, headers=self.headers)
-        print(channel_name)
-        print(f'upper_limit = {upper_limit}\n'
-              f'lower_limit = {lower_limit}')
 
         if all_posts.status_code == 200:
             content = all_posts.json()['data']['content']
@@ -277,44 +227,40 @@ class Api:
             #  sort posts from new to older
             posts = list(Post(item, channel_id) for item in items)
             posts = sorted(posts, key=lambda p: p.publish_at, reverse=True)
-
+            oldest_post = len(posts) - 1
             # check posts ony by one to match right time period
             for post in posts:
                 if post.publish_at < lower_limit:
+                    oldest_post = posts.index(post)
                     break
 
-                # if lower_limit < post.publish_at < upper_limit:
-                right_period.append(post)
-                print(f' >> {post.publish_at}, {post.id}')
-
+            right_period = posts[0:oldest_post]
             # if no posts in this period
             if len(right_period) == 0:
 
                 pre_lower_limit = DataBase.preLastUpdate(DataBase(), channel_id)
                 pre_lower_limit = datetime.strptime(pre_lower_limit, DT_FORMAT)  # get previous update time
 
-                if tries >= 2:  # if previous period have no posts too
+                if tries >= 1:  # if previous period have no posts too
                     self.lower_limit = self.lower_limit - timedelta(hours=5)  # iterating beck with 5 hours step
-                    pre_lower_limit = self.lower_limit                        # until we get post in this time period
+                    pre_lower_limit = self.lower_limit  # until we get post in this time period
 
                 result = self.UpdatePost(channel_id, channel_name, pre_lower_limit, upper_limit, tries + 1)
                 return result
             else:  # if we have post in period and can take it
                 top_smiles = sorted(right_period, key=lambda post: post.smiles, reverse=True)  # sorting by smiles
-                print(f'\t\tSMILES SORT {len(top_smiles)}')
-                for post in top_smiles:
-                    print(f' s> {post.publish_at}, {post.id}, {post.smiles}')
-                DataBase.lastUpdate(DataBase(), 'set', channel_id, upper_limit)
-                logging.info(f'Finished searching for updates in category: {channel_id}')
                 position = 0
                 if DataBase.DuplicatePost(DataBase(), channel_name, top_smiles[position].id) is True:
                     while DataBase.DuplicatePost(DataBase(), channel_name, top_smiles[position].id) is True:
                         position += 1
-                        print(f'position = {position}')
                         if position >= len(top_smiles):
+                            logging.warning(f'UpdatePost: get not enough posts that wasn`t sended before in this period')
                             self.lower_limit = self.lower_limit - timedelta(hours=5)  # iterating beck with 5 hours step
                             pre_lower_limit = self.lower_limit  # until we get post in this time period
                             result = self.UpdatePost(channel_id, channel_name, pre_lower_limit, upper_limit, tries + 1)
+                            DataBase.lastUpdate(DataBase(), 'set', channel_id, upper_limit)
+
+                            logging.info(f'Finished searching for updates in category: {channel_id}')
                             return result
                         try:
                             best_post = top_smiles[position]
@@ -322,56 +268,8 @@ class Api:
                         except:
                             best_post = None
 
+                    logging.info(f'Finished searching for updates in category: {channel_id}')
                     return best_post  # get one of the most smiled post
 
                 DataBase.lastUpdate(DataBase(), 'set', channel_id, upper_limit)
                 return top_smiles[position]
-
-
-
-
-
-    def test_max_quality(self):
-        headers = self.headers
-        url = f'https://api.ifunny.mobi/v4/channels/5ed63a7d16ba9c5ce307d080/items?limit=30'
-        my_request = requests.get(url, headers=headers)
-        if my_request.status_code == 200:
-            posts = my_request.json()
-            items = posts['data']['content']['items']
-            for item in items:
-                #print(json.dumps(item, indent=4))
-                img = urllib.request.urlopen(item['url']).read()
-                out = open(f"img_test/original_url.jpg", "wb")
-                out.write(img)
-                out.close()
-                get_qual = Image.open(f"img_test/original_url.jpg")
-                print("Отсылаемое изображение: ", get_qual.size)
-                o_x, o_y = get_qual.size
-                get_qual.close()
-                for url in item['thumb']:
-                    try:
-                        img = urllib.request.urlopen(item['thumb'][url]).read()
-                        out = open(f"img_test/{url}.jpg", "wb")
-                        out.write(img)
-                        out.close()
-                        get_qual = Image.open(f"img_test/{url}.jpg")
-                        x, y = get_qual.size
-                        if o_x < x or o_y < y:
-                            print(f'Качество лучше {x}, {y}', item['thumb'][url] )
-
-                        get_qual.close()
-                    except:
-                        pass
-
-
-#
-# api = Api()
-# lower_limit = DataBase.lastUpdate(DataBase(), 'get', '5ee0ccdb73131700157c6ba2')
-# lower_limit = datetime.strptime(lower_limit, DT_FORMAT)
-# upper_limit = datetime.now().strftime(DT_FORMAT)
-# upper_limit = datetime.strptime(upper_limit, DT_FORMAT)
-# prelower_limit = DataBase.preLastUpdate(DataBase(),'5ee0ccdb73131700157c6ba2')
-# api.lower_limit = datetime.strptime(prelower_limit, DT_FORMAT)
-# print(api.lower_limit)
-# a = api.UpdatePost('5ee0ccdb73131700157c6ba2', 'мемы', lower_limit, upper_limit, 0)
-# print(a.smiles, a.publish_at, a.link)

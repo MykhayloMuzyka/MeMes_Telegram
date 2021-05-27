@@ -4,7 +4,7 @@ import my_data
 
 # TOKEN = '1715716309:AAFXmXSldg1jpB-gGzdB7yOdX8ruGYrzacY' # testBot
 TOKEN = '1736058357:AAF3OmRx7bLczhcsHJTJN6AHBruW1TSxzgw'  # Memes_bot
-DELAY = 150
+DELAY = 60 * 5
 
 api_id = 5066297
 api_hash = 'adafd7c34ac0199fba4a7e81630208ff'
@@ -55,3 +55,4 @@ def key_by_value(dictionary, value):
     except ValueError:
         result = 'key_by_value_exception'
     return result
+

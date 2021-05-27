@@ -184,8 +184,7 @@ class DataBase:
 
         cmd_get = f"select `last_update_time` from channels where `channel_id` = '{channel_id}'"
         cmd_set = f"update channels set `last_update_time` = '{last_time}' where `channel_id` = '{channel_id}'"
-        cmd_set_2 = f"update channels set `prelast_update_time` = " \
-                    f"(select `last_update_time` from channels where `channel_id` = '{channel_id}') " \
+        cmd_set_2 = f"update `channels` set `prelast_update_time` = (select `last_update_time` from channels where `channel_id` = '{channel_id}') " \
                     f"where `channel_id` = '{channel_id}'"
         exception_return = datetime.now()
         exception_return = exception_return.replace(day=exception_return.day + 2).strftime(DT_FORMAT)
@@ -243,7 +242,6 @@ class DataBase:
     def AddPost(self, message_id, post, channel_name: str):
 
         cmd = f'insert into `{channel_name}` (message_id, post_id, post_url, post_type) values (?, ?, ?, ?)'
-        exc_cmd = f'update {channel_name} set message_id = {message_id},  where post_id = {post.id}'
         try:
             self.cursor = self.db.cursor()
             params = (message_id, post.id, post.url, post.type)
@@ -252,16 +250,9 @@ class DataBase:
             self.cursor.close()
             return True
         except sqlite3.Error as err:
-            if 'UNIQUE constraint failed' in err.args[0]:
-                logging.warning(f'Duplicate row in AddPost: {err.args}')
-                self.cursor.execute(exc_cmd)
-                self.db.commit()
-                self.cursor.close()
-                return True
-            else:
                 self.cursor.close()
                 logging.error(err)
-                raise sqlite3.Error
+
         except Exception as err:
             logging.error(f' AddPost: {err}')
             return False
@@ -279,26 +270,5 @@ class DataBase:
         except sqlite3.Error as err:
             self.cursor.close()
             logging.error(f'DuplicatePost: {err}')
-            return False
-    def test(self, channel_name):
+            raise sqlite3.Error.args
 
-        cmd = f'SELECT * FROM `{channel_name}` WHERE id=(SELECT max(id) FROM `{channel_name}`);'
-        answer = dict()
-        try:
-            self.cursor = self.db.cursor()
-            self.cursor.execute(cmd)
-            record = self.cursor.fetchone()
-            self.cursor.close()
-            answer['num'] = record[0]
-            answer['message_id'] = record[1]
-            answer['post_id'] = record[2]
-            answer['url'] = record[3]
-            answer['type'] = record[4]
-            return answer
-
-        except sqlite3.Error as err:
-            logging.error(f'test: {err}')
-            self.cursor.close()
-
-
-print(DataBase.DuplicatePost(DataBase(), 'мемы', 'dadadadwq'))

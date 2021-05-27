@@ -39,14 +39,6 @@ id_to_link['featured'] = favorite_id
 DataBase.WriteChannels('featured', 'featured', favorite_id)
 
 
-
-
-smiles = [1576, 3826, 2544, 2251, 3380, 1350, 0, 0, 0,0]
-
-for count, key in enumerate(Api.smiles_filter.keys()):
-    Api.smiles_filter[key] = smiles[count]
-
-
 async def send_post(channel_id, chat, post, send_time):
     """
     :param channel_id: ID from API for this category of posts
@@ -55,7 +47,6 @@ async def send_post(channel_id, chat, post, send_time):
     :param send_time: time before sending to make Log
     :return: if success True else False
     """
-    chat = test_id
     message = 0000
     success = True
     post_filetype = post.url.strip()[-3:]
@@ -92,6 +83,7 @@ async def send_post(channel_id, chat, post, send_time):
     logging.info(f'№{post.id} send in {float((send_time - to_send_time) * 1000).__round__(2)} ms')
 
     if success:  # if message was send with right method - add post in Database and update id and date
+        print()
         DataBase.AddPost(message.message_id, post, key_by_value(channels_links, chat))
         DataBase.Last_id('set', channel_id, post.id)
         DataBase.lastUpdate('set', channel_id, datetime.now().strftime(DT_FORMAT))
@@ -115,7 +107,7 @@ async def fill_channels():
             send_time = time.time()
             try:
                 await send_post(channel_id, id_to_link[channel_id], best_memes[channel_id][post_num], send_time)
-                logging.info(f'№{post_num}: Send post ({post.url}) and update post_id in DB')
+                logging.info(f' № {post_num}: Send post ({post.url}) and update post_id in DB')
 
             except aiogram.exceptions.RetryAfter as err:
                 logging.warning(f'№{post_num}: CATCH FLOOD CONTROL for {err.timeout} seconds')
@@ -131,32 +123,32 @@ async def fill_channels():
         last_time = datetime.now().strftime(DT_FORMAT)
         DataBase.lastUpdate('set', channel_id, last_time)
 
-
-async def fill_favorite():
-    best_favorites = Api.getFeatures()
-    send_time = time.time()
-
-    for post_num in range(len(best_favorites)):
-        post = best_favorites[post_num]
-        send_time = time.time()
-
-        try:
-            await send_post('featured', favorite_id, post, send_time)
-            logging.info(f'№{post_num}: Send post ({post.url}) and update post_id in DB')
-
-        except aiogram.exceptions.RetryAfter as err:
-            logging.warning(f'\t\t\t\t\t\tCATCH FLOOD CONTROL {err.timeout}')
-            time.sleep(err.timeout)
-            await send_post('featured', favorite_id, post, send_time)
-
-        except aiogram.exceptions.BadRequest as err:
-            logging.warning(f'№{post_num}: get Bad request: {err} ({post.url})')
-            await send_post('featured', favorite_id, post, send_time)
-
-        except:
-            logging.error(PrintException())
-    last_time = datetime.now().strftime(DT_FORMAT)
-    DataBase.lastUpdate('set', 'featured', last_time)
+#
+# async def fill_favorite():
+#     best_favorites = Api.getFeatures()
+#     send_time = time.time()
+#
+#     for post_num in range(len(best_favorites)):
+#         post = best_favorites[post_num]
+#         send_time = time.time()
+#
+#         try:
+#             await send_post('featured', favorite_id, post, send_time)
+#             logging.info(f'№{post_num}: Send post ({post.url}) and update post_id in DB')
+#
+#         except aiogram.exceptions.RetryAfter as err:
+#             logging.warning(f'\t\t\t\t\t\tCATCH FLOOD CONTROL {err.timeout}')
+#             time.sleep(err.timeout)
+#             await send_post('featured', favorite_id, post, send_time)
+#
+#         except aiogram.exceptions.BadRequest as err:
+#             logging.warning(f'№{post_num}: get Bad request: {err} ({post.url})')
+#             await send_post('featured', favorite_id, post, send_time)
+#
+#         except:
+#             logging.error(PrintException())
+#     last_time = datetime.now().strftime(DT_FORMAT)
+#     DataBase.lastUpdate('set', 'featured', last_time)
 
 
 # async def fill_test():
@@ -178,15 +170,17 @@ async def fill_favorite():
 #             PrintException()
 #     DataBase.lastUpdate('set', '5ed63a9f0c26185b832ccc3c', best_posts['5ed63a9f0c26185b832ccc3c'][-1].id)
 
-
+was_started = False
 async def CheckUpdates():
-    timer = datetime.now().replace(hour=0, minute=2, second=0)
+    global was_started
+    timer = datetime.now().replace(hour=0, minute=3, second=0)
+    at_start_update = datetime.strptime(datetime.now().strftime(DT_FORMAT), DT_FORMAT)
 
     morning = datetime.strptime(datetime.now().replace(hour=9, minute=0, second=0).strftime(DT_FORMAT), DT_FORMAT)
-    day = datetime.strptime(datetime.now().replace(hour=13, minute=12, second=0).strftime(DT_FORMAT), DT_FORMAT)
+    day = datetime.strptime(datetime.now().replace(hour=12, minute=0, second=0).strftime(DT_FORMAT), DT_FORMAT)
     evening = datetime.strptime(datetime.now().replace(hour=18, minute=0, second=0).strftime(DT_FORMAT), DT_FORMAT)
     now_time = datetime.now()
-    schedule = [morning, day, evening]
+    schedule = [morning, day, evening, at_start_update]
     for posting_time in schedule:
         diff = (now_time - posting_time).__abs__().total_seconds()
         dif_hours = int(diff // 3600)
@@ -194,9 +188,13 @@ async def CheckUpdates():
         dif_seconds = int(diff % 60)
 
         difference = datetime.now().replace(hour=dif_hours, minute=dif_minutes, second=dif_seconds)
-        logging.info(f'Difference between {posting_time} and {now_time} = {difference}')
-        logging.info(f'Difference < than timer? : {difference <= timer:}')
+        logging.info(f'Difference between {posting_time} and {now_time} = {difference}| {difference <= timer:}')
         if difference <= timer:
+            if posting_time == at_start_update:
+                if was_started is False:
+                    was_started = True
+                else:
+                    break
             all_channels = DataBase.ReadChannels()
             for chName, chId in all_channels:
                 lower_limit = DataBase.lastUpdate('get', chId)
@@ -208,18 +206,14 @@ async def CheckUpdates():
                 logging.info(f'Search post since {lower_limit} to {upper_limit} for channel: {chName}')
 
                 channel_table = key_by_value(channels_info, {'telegram': id_to_link[chId], 'api_id': chId})
-                print(id_to_name[chId])
                 new_post = (Api.UpdatePost(chId, 'test', lower_limit, upper_limit, 0),)
-
 
                 if len(new_post) > 0 and new_post[0] is not None:
                     logging.info(f'Found a new post:  {new_post[0].id}, {new_post[0].publish_at}  {new_post[0].url}')
                     send_time = time.time()
                     for post_num in range(len(new_post)):
                         post = new_post[post_num]
-                        print(post.publish_at, post.url, post.id)
                         try:
-                            await bot.send_message(test_id, chName)
                             await send_post(chId, id_to_link[chId], post, send_time)
                             logging.info(f'№{post_num}: Send post ({post.url}) and update post_id in DB')
 
@@ -233,16 +227,14 @@ async def CheckUpdates():
                             try:
                                 await send_post(chId, id_to_link[chId], post, send_time)
                             except aiogram.exceptions.BadRequest:
-                                logging.warning(f'№{post_num}: get  repeated Bad request: {err} to ({post.url})')
+                                logging.warning(f'№{post_num}: get repeated Bad request: {err} to ({post.url})')
 
                                 continue
 
-                        except:
-                            logging.error(PrintException())
-                    new_time = new_post[-1].publish_at.strftime(DT_FORMAT)
+                    new_time = datetime.now().strftime(DT_FORMAT)
                     DataBase.lastUpdate('set', chId, new_time)
                 else:
-                    logging.warning(f'No content to send at {datetime.now()} {new_post}')
+                    logging.error(f'No content to send at {datetime.now()} {new_post}')
 
 
 async def ClearChannel():
@@ -321,7 +313,7 @@ async def ClearChannel():
 
 
 def repeat(coro, loop):
-    print(f'repeat posting at {datetime.now()}')
+    logging.info(f'Check updating schedule at {datetime.now()}')
     asyncio.ensure_future(coro(), loop=loop)
     loop.call_later(DELAY, repeat, coro, loop)
 
@@ -336,15 +328,13 @@ if __name__ == '__main__':
                     '\t\t - /exit: to stop the script\n'
                     'Input your command :').strip().lower()
         if cmd == '/fill_channels':
-            # loop.run_until_complete(fill_favorite())
             loop.run_until_complete(fill_channels())
         elif cmd == '/autopost':
-            break
+            logging.info(f'Start Monitoring at {datetime.now()}')
+            loop.call_later(DELAY, repeat, CheckUpdates, loop)
+            executor.start_polling(dp)
         elif cmd == '/clear_channels':
             loop.run_until_complete(ClearChannel())
         elif cmd == '/exit':
             sys.exit()
 
-    print(f'go posting at {datetime.now()}')
-    loop.call_later(DELAY, repeat, CheckUpdates, loop)
-    executor.start_polling(dp)
