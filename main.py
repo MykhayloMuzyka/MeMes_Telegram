@@ -1,63 +1,81 @@
-from aiogram import executor, Dispatcher, Bot
-from localbase import DataBase, TABLES
-from memes import Api, ImageReader
-from telethon import functions, errors
-from telethon.tl.types import PeerUser, PeerChat, PeerChannel, InputPeerUser, InputPeerChat, InputPeerChannel, InputPeerEmpty
+from datetime import datetime
+
+from telethon.tl.types import PeerChannel, InputPeerEmpty
 from telethon.tl.types.messages import Messages
-from telethon import types
+from aiogram import executor, Dispatcher, Bot
 from telethon.sync import TelegramClient
+from localbase import DataBase, TABLES
+from telethon import functions, errors
+from memes import Api, ImageReader
 from settings import *
 import logging
 import aiogram
 import asyncio
 import time
 
+logging.basicConfig(level=logging.INFO)
+
+Api = Api()
+DataBase = DataBase()
+
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 
-DataBase = DataBase()
-Api = Api()
-
 DataBase.createTables(TABLES)
+channels = Api.getChannels()
 
 id_to_link = dict()
 id_to_name = dict()
-
-channels = Api.getChannels()
 for ch_id, ch_name in Api.getChannels():
     id_to_name[ch_id] = ch_name
-    for name in channels_links:
+    for name in channels_info:
         if name in ch_name:
-            id_to_link[ch_id] = channels_links[name]
-            DataBase.WriteChannels(ch_id, ch_name, channels_links[name])
+            id_to_link[ch_id] = channels_info[name]['telegram']
+            channels_info[name]['api_id'] = ch_id
+            DataBase.WriteChannels(ch_id, ch_name, channels_info[name]['telegram'])
+
+id_to_name['featured'] = 'featured'
+id_to_link['featured'] = favorite_id
 DataBase.WriteChannels('featured', 'featured', favorite_id)
 
 
-smiles = [1200, 2973, 1802, 3180, 3380, 1350, 0, 0, 0]
-count = 0
-for i in Api.smiles_filter.keys():
-    Api.smiles_filter[i] = smiles[count]
-    count += 1
+
+
+smiles = [1576, 3826, 2544, 2251, 3380, 1350, 0, 0, 0,0]
+
+for count, key in enumerate(Api.smiles_filter.keys()):
+    Api.smiles_filter[key] = smiles[count]
 
 
 async def send_post(channel_id, chat, post, send_time):
-    post_filetype = post.url.strip()[-3:]
-    timeout = abs(2.5 - float(time.time() - send_time).__round__(2))
-    logging.info(f'\t\tTimeout {timeout}')
+    """
+    :param channel_id: ID from API for this category of posts
+    :param chat: Telegram chat ID for this category of posts
+    :param post: One Post() that you need to send to telegram channel
+    :param send_time: time before sending to make Log
+    :return: if success True else False
+    """
+    chat = test_id
+    message = 0000
     success = True
-    if timeout < 2.5:
+    post_filetype = post.url.strip()[-3:]
+    timeout = abs(2 - float(time.time() - send_time).__round__(2))
+
+    # when trying to send a message faster than 2 seconds after the previous one, make a timeout
+    if float(time.time() - send_time).__round__(2) < 2:
         time.sleep(timeout)
+        logging.info(f'#{post.id}: Timeout before sending =  {timeout}')
+
+    # check content type to choose Telegram method
+    to_send_time = time.time()
 
     if post_filetype in ('jpg', 'png'):
         image = ImageReader(post)
         if image.watermark():
-            logging.info(f'\t\tSEND time = {float(time.time() - send_time).__round__(2) * 1000} ms')
             message = await bot.send_photo(chat, image.Crop())
-            send_time = time.time()
-            logging.info(f'\t\tSENDED time = {float(time.time() - send_time).__round__(2) * 1000} ms')
 
         else:
-            logging.info('\t\t\t\t\t\t\tWITHOUT WATERMARK')
+            logging.info(f'№{post.id} Don`t have watermark (no need to crop image) {post.url}')
             message = await bot.send_photo(chat, post.url, post.title)
 
     elif post_filetype in ('mp4',):
@@ -65,48 +83,53 @@ async def send_post(channel_id, chat, post, send_time):
 
     elif post_filetype in ('gif',):
         message = await bot.send_animation(chat, post.url, caption=post.title)
-
     else:
-        print(post.type, post.url)
-        message = 0000
+        logging.warning(f'Unknown Post.type ({post.type}) at {post.url}')
         success = False
-    if success:
-        DataBase.AddPost(message.message_id, post, id_to_name[channel_id])
+
+    # check how much time to choose method and send post
+    send_time = time.time()
+    logging.info(f'№{post.id} send in {float((send_time - to_send_time) * 1000).__round__(2)} ms')
+
+    if success:  # if message was send with right method - add post in Database and update id and date
+        DataBase.AddPost(message.message_id, post, key_by_value(channels_links, chat))
+        DataBase.Last_id('set', channel_id, post.id)
+        DataBase.lastUpdate('set', channel_id, datetime.now().strftime(DT_FORMAT))
+        return True
+    return False
 
 
 async def fill_channels():
     best_memes = Api.BestPosts()
-    length = list()
+
     for channel_id in best_memes:
-        length.append(len(best_memes[channel_id]))
-    send_time = time.time()
-    for post_num in range(max(length)):
-        print('\ncurrent post = ', post_num)
-        post_time = time.time()
+        last_post_id = DataBase.Last_id('get', channel_id)
 
-        for channel_id in best_memes.keys():
-            if channel_id in id_to_link.keys() and post_num in range(0, len(best_memes[channel_id])):
+        # Search last post in Telegram channel and strip list from this post to the end to avoid repetition
+        for post_num, post in enumerate(best_memes[channel_id]):
+            if post.id == last_post_id:
+                best_memes[channel_id] = best_memes[channel_id][post_num + 1:]
+                break
+        # Start filling channel by channel
+        for post_num, post in enumerate(best_memes[channel_id]):
+            send_time = time.time()
+            try:
+                await send_post(channel_id, id_to_link[channel_id], best_memes[channel_id][post_num], send_time)
+                logging.info(f'№{post_num}: Send post ({post.url}) and update post_id in DB')
 
-                post = best_memes[channel_id][post_num]
-                post_filetype = post.url.strip()[-3:]
-                try:
-                    await send_post(channel_id,id_to_link[channel_id], post, send_time)
-                    send_time = time.time()
-                    DataBase.Last_1000_id('set', channel_id, post.id)
+            except aiogram.exceptions.RetryAfter as err:
+                logging.warning(f'№{post_num}: CATCH FLOOD CONTROL for {err.timeout} seconds')
+                time.sleep(err.timeout)
+                await send_post(channel_id, id_to_link[channel_id], best_memes[channel_id][post_num], send_time)
 
-                except aiogram.exceptions.RetryAfter as err:
-                    logging.info(f'\t\t\t\t\t\tCATCH FLOOD CONTROL {err.timeout}')
-                    time.sleep(err.timeout)
-                    post_num = post_num - 1
-                except:
-                    PrintException()
+            except aiogram.exceptions.BadRequest as err:
+                logging.warning(f'№{post_num}: get Bad request: {err} ({post.url})')
+                await send_post(channel_id, id_to_link[channel_id], best_memes[channel_id][post_num], send_time)
 
-                print(f'post time = {float(time.time() - post_time).__round__(2) * 1000} ms\n')
-
-            else:
-                continue
-
-
+            except:
+                logging.error(PrintException())
+        last_time = datetime.now().strftime(DT_FORMAT)
+        DataBase.lastUpdate('set', channel_id, last_time)
 
 
 async def fill_favorite():
@@ -115,54 +138,111 @@ async def fill_favorite():
 
     for post_num in range(len(best_favorites)):
         post = best_favorites[post_num]
-        post_filetype = post.url.strip()[-3:]
+        send_time = time.time()
+
         try:
-            await send_post('featured',favorite_id,post,send_time)
-            send_time = time.time()
+            await send_post('featured', favorite_id, post, send_time)
+            logging.info(f'№{post_num}: Send post ({post.url}) and update post_id in DB')
+
         except aiogram.exceptions.RetryAfter as err:
             logging.warning(f'\t\t\t\t\t\tCATCH FLOOD CONTROL {err.timeout}')
             time.sleep(err.timeout)
-            post_num -= 1
+            await send_post('featured', favorite_id, post, send_time)
+
+        except aiogram.exceptions.BadRequest as err:
+            logging.warning(f'№{post_num}: get Bad request: {err} ({post.url})')
+            await send_post('featured', favorite_id, post, send_time)
 
         except:
-            PrintException()
+            logging.error(PrintException())
+    last_time = datetime.now().strftime(DT_FORMAT)
+    DataBase.lastUpdate('set', 'featured', last_time)
 
-async def fill_test():
-    best_posts = Api.BestPosts()
-    length = list()
-    for channel_id in best_posts:
-        length.append(len(best_posts[channel_id]))
-    send_time = time.time()
-    for post_num in range(max(length)):
-        post = best_posts['5ed63a9f0c26185b832ccc3c'][post_num]
-        try:
-            await send_post(test_id, post, send_time)
-            DataBase.Last_1000_id('set', '5ed63a9f0c26185b832ccc3c', post.id)
-        except aiogram.exceptions.RetryAfter as err:
-            logging.info(f'\t\t\t\t\t\tCATCH FLOOD CONTROL {err.timeout}')
-            time.sleep(err.timeout)
-            post_num -= 1
-        except:
-            PrintException()
-    DataBase.lastUpdate('set', '5ed63a9f0c26185b832ccc3c', best_posts['5ed63a9f0c26185b832ccc3c'][-1].id)
 
-async def CheckUpdates(): # chat replace
-    all_channels = DataBase.ReadChannels()
-    for chName, chId in all_channels:
-        last_post = DataBase.lastUpdate('get', chId)
-        new_posts = Api.UpdatePost(chId, last_post)
-        send_time = time.time()
-        for post_num in range(len(new_posts)):
-            post = new_posts[post_num]
-            post_filetype = post.url.strip()[-3:]
-            try:
-                await send_post(test_id, post, send_time)
-                send_time = time.time()
-            except aiogram.exceptions.RetryAfter as err:
-                time.sleep(err.timeout)
+# async def fill_test():
+#     best_posts = Api.BestPosts()
+#     length = list()
+#     for channel_id in best_posts:
+#         length.append(len(best_posts[channel_id]))
+#     send_time = time.time()
+#     for post_num in range(max(length)):
+#         post = best_posts['5ed63a9f0c26185b832ccc3c'][post_num]
+#         try:
+#             await send_post(test_id, post, send_time)
+#             DataBase.Last_1000_id('set', '5ed63a9f0c26185b832ccc3c', post.id)
+#         except aiogram.exceptions.RetryAfter as err:
+#             logging.info(f'\t\t\t\t\t\tCATCH FLOOD CONTROL {err.timeout}')
+#             time.sleep(err.timeout)
+#             post_num -= 1
+#         except:
+#             PrintException()
+#     DataBase.lastUpdate('set', '5ed63a9f0c26185b832ccc3c', best_posts['5ed63a9f0c26185b832ccc3c'][-1].id)
 
-            except:
-                PrintException()
+
+async def CheckUpdates():
+    timer = datetime.now().replace(hour=0, minute=2, second=0)
+
+    morning = datetime.strptime(datetime.now().replace(hour=9, minute=0, second=0).strftime(DT_FORMAT), DT_FORMAT)
+    day = datetime.strptime(datetime.now().replace(hour=13, minute=12, second=0).strftime(DT_FORMAT), DT_FORMAT)
+    evening = datetime.strptime(datetime.now().replace(hour=18, minute=0, second=0).strftime(DT_FORMAT), DT_FORMAT)
+    now_time = datetime.now()
+    schedule = [morning, day, evening]
+    for posting_time in schedule:
+        diff = (now_time - posting_time).__abs__().total_seconds()
+        dif_hours = int(diff // 3600)
+        dif_minutes = int((diff % 3600) // 60)
+        dif_seconds = int(diff % 60)
+
+        difference = datetime.now().replace(hour=dif_hours, minute=dif_minutes, second=dif_seconds)
+        logging.info(f'Difference between {posting_time} and {now_time} = {difference}')
+        logging.info(f'Difference < than timer? : {difference <= timer:}')
+        if difference <= timer:
+            all_channels = DataBase.ReadChannels()
+            for chName, chId in all_channels:
+                lower_limit = DataBase.lastUpdate('get', chId)
+                lower_limit = datetime.strptime(lower_limit, DT_FORMAT)
+                Api.lower_limit = lower_limit
+
+                upper_limit = datetime.now().strftime(DT_FORMAT)
+                upper_limit = datetime.strptime(upper_limit, DT_FORMAT)
+                logging.info(f'Search post since {lower_limit} to {upper_limit} for channel: {chName}')
+
+                channel_table = key_by_value(channels_info, {'telegram': id_to_link[chId], 'api_id': chId})
+                print(id_to_name[chId])
+                new_post = (Api.UpdatePost(chId, 'test', lower_limit, upper_limit, 0),)
+
+
+                if len(new_post) > 0 and new_post[0] is not None:
+                    logging.info(f'Found a new post:  {new_post[0].id}, {new_post[0].publish_at}  {new_post[0].url}')
+                    send_time = time.time()
+                    for post_num in range(len(new_post)):
+                        post = new_post[post_num]
+                        print(post.publish_at, post.url, post.id)
+                        try:
+                            await bot.send_message(test_id, chName)
+                            await send_post(chId, id_to_link[chId], post, send_time)
+                            logging.info(f'№{post_num}: Send post ({post.url}) and update post_id in DB')
+
+                        except aiogram.exceptions.RetryAfter as err:
+                            logging.warning(f'№{post_num}: CATCH FLOOD CONTROL for {err.timeout} seconds')
+                            time.sleep(err.timeout)
+                            await send_post(chId, id_to_link[chId], post, send_time)
+
+                        except aiogram.exceptions.BadRequest as err:
+                            logging.warning(f'№{post_num}: get Bad request: {err} ({post.url})')
+                            try:
+                                await send_post(chId, id_to_link[chId], post, send_time)
+                            except aiogram.exceptions.BadRequest:
+                                logging.warning(f'№{post_num}: get  repeated Bad request: {err} to ({post.url})')
+
+                                continue
+
+                        except:
+                            logging.error(PrintException())
+                    new_time = new_post[-1].publish_at.strftime(DT_FORMAT)
+                    DataBase.lastUpdate('set', chId, new_time)
+                else:
+                    logging.warning(f'No content to send at {datetime.now()} {new_post}')
 
 
 async def ClearChannel():
@@ -181,10 +261,10 @@ async def ClearChannel():
         while user is None:
             code = input('Enter the code you just received: ')
             try:
-                self_user = await client.sign_in(phone, code)
+                user = await client.sign_in(phone, code)
             except errors.SessionPasswordNeededError:
                 pw = input('Two step verification is enabled. Please enter your password: ')
-                self_user = await client.sign_in(password=pw)
+                user = await client.sign_in(password=pw)
 
     get_dialogs = functions.messages.GetDialogsRequest(
         offset_date=None,
@@ -194,7 +274,6 @@ async def ClearChannel():
         hash=0
     )
     dialogs = await client(get_dialogs)
-
     # create dictionary of ids to chats
     chats = {}
 
@@ -205,12 +284,12 @@ async def ClearChannel():
         peer = d.peer
         if isinstance(peer, PeerChannel):
 
-            id = peer.channel_id
-            channel = chats[id]
+            peer_id = peer.channel_id
+            channel = chats[peer_id]
             access_hash = channel.access_hash
             name = channel.title
             if name in channels_links.keys():
-                to_clear.append([id, access_hash])
+                to_clear.append([peer_id, access_hash])
         else:
             continue
 
@@ -218,29 +297,31 @@ async def ClearChannel():
         chat = PeerChannel(int(chat_id))
         start = await client.send_message(chat, 'Abra Candelabra')
 
-        to_delete = list(range(0, start.id+1))
+        to_delete = list(range(0, start.id + 1))
         to_delete.reverse()
-        messeges_count = len(to_delete)
+        messages_count = len(to_delete)
 
         while True:
             try:
-                chunk = to_delete[messeges_count - 100:messeges_count]
-                if messeges_count < 100:
-                    chunk = to_delete[0:messeges_count]
+                chunk = to_delete[messages_count - 100:messages_count]
+                if messages_count < 100:
+                    chunk = to_delete[0:messages_count]
 
                 await client.delete_messages(chat, chunk)
-                if to_delete[0] in chunk or messeges_count < 0:
+                if to_delete[0] in chunk or messages_count < 0:
                     break
-                messeges_count = messeges_count - 100
-            except Exception:
-                logging.error(Exception.args)
+                messages_count = messages_count - 100
+            except Exception as err:
+                logging.error(f'Cleaning chat: {chat}, {err}')
                 break
 
-        await client.delete_messages(types.PeerChannel(chat_id), start.id)
+        await client.delete_messages(chat, start.id)
+    if client.is_connected():
         await client.disconnect()
 
 
 def repeat(coro, loop):
+    print(f'repeat posting at {datetime.now()}')
     asyncio.ensure_future(coro(), loop=loop)
     loop.call_later(DELAY, repeat, coro, loop)
 
@@ -255,17 +336,15 @@ if __name__ == '__main__':
                     '\t\t - /exit: to stop the script\n'
                     'Input your command :').strip().lower()
         if cmd == '/fill_channels':
-            loop.run_until_complete(fill_favorite())
-            loop.run_until_complete(fill_test())
+            # loop.run_until_complete(fill_favorite())
+            loop.run_until_complete(fill_channels())
         elif cmd == '/autopost':
-            loop.call_later(DELAY, repeat, CheckUpdates, loop)
+            break
         elif cmd == '/clear_channels':
             loop.run_until_complete(ClearChannel())
         elif cmd == '/exit':
             sys.exit()
 
-
-
-    print('polling')
+    print(f'go posting at {datetime.now()}')
+    loop.call_later(DELAY, repeat, CheckUpdates, loop)
     executor.start_polling(dp)
-
