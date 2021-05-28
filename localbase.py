@@ -1,5 +1,7 @@
+import time
+
 from settings import PrintException
-from settings import channels_links, DT_FORMAT
+from settings import channels_links, DT_FORMAT, key_by_value, channels_info
 from aiogram.types import base
 from typing import Optional
 import sqlite3
@@ -184,14 +186,19 @@ class DataBase:
 
         cmd_get = f"select `last_update_time` from channels where `channel_id` = '{channel_id}'"
         cmd_set = f"update channels set `last_update_time` = '{last_time}' where `channel_id` = '{channel_id}'"
-        cmd_set_2 = f"update `channels` set `prelast_update_time` = (select `last_update_time` from channels where `channel_id` = '{channel_id}') " \
-                    f"where `channel_id` = '{channel_id}'"
+        cmd_set_2 = f"update `channels` set `prelast_update_time` = (?) where `channel_id` = '{channel_id}'"
         exception_return = datetime.now()
         exception_return = exception_return.replace(day=exception_return.day + 2).strftime(DT_FORMAT)
         if flag == 'set':
             try:
                 self.cursor = self.db.cursor()
-                self.cursor.execute(cmd_set_2)
+                self.cursor.execute(cmd_get)
+                record = self.cursor.fetchone()[0]
+                print('prelast = ', record)
+                self.cursor.execute(cmd_set_2, (record,))
+                self.db.commit()
+                time.sleep(1)
+                print('last = ', last_time)
                 self.cursor.execute(cmd_set)
                 self.db.commit()
                 self.cursor.close()
@@ -270,5 +277,7 @@ class DataBase:
         except sqlite3.Error as err:
             self.cursor.close()
             logging.error(f'DuplicatePost: {err}')
-            raise sqlite3.Error.args
+
+
+
 

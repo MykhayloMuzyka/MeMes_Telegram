@@ -4,7 +4,7 @@ import my_data
 
 # TOKEN = '1715716309:AAFXmXSldg1jpB-gGzdB7yOdX8ruGYrzacY' # testBot
 TOKEN = '1736058357:AAF3OmRx7bLczhcsHJTJN6AHBruW1TSxzgw'  # Memes_bot
-DELAY = 60 * 5
+DELAY = 60 * 3
 
 api_id = 5066297
 api_hash = 'adafd7c34ac0199fba4a7e81630208ff'
@@ -21,7 +21,7 @@ channels_links = {'девушки': '-1001470907718',  # right
                   'позалипать': '-1001222952410',  # right
                   'жизненно': '-1001464760193',  # right
                   'отношения': '-1001351980116',  # right
-                  'test': my_data.my_test_id
+                  'featured': '-1001467928277'
                   }
 channels_info = {
     'девушки': {'telegram': '-1001470907718', 'api_id': None},
@@ -32,6 +32,7 @@ channels_info = {
     'позалипать': {'telegram': '-1001222952410', 'api_id': None},  # right
     'жизненно': {'telegram': '-1001464760193', 'api_id': None},  # right
     'отношения': {'telegram': '-1001351980116', 'api_id': None},  # right
+    'featured': {'telegram': '-1001467928277', 'api_id': None},  # right
 }
 
 favorite_id = '-1001467928277'

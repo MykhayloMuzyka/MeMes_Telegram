@@ -200,7 +200,7 @@ class Api:
         logging.info(f'BestPosts filtered in {float(time.time() - begin_time).__round__(2)} seconds')
         return result
 
-    def UpdatePost(self, channel_id, channel_name, lower_limit, upper_limit, tries):
+    def UpdatePost(self, channel_id, channel_name, lower_limit, tries):
         """
         Сhecks current channel for new posts since the last one written to the database.
         :param tries: set this parameter to Zero, its for recursion searaching of result
@@ -211,14 +211,16 @@ class Api:
 
         :return: if channel needs update return list() of Post() with best post from last period, else return empty list()
         """
-        logging.info(f'{channel_name}: Searching for new post since {lower_limit} to {upper_limit}')
+        logging.info(f'{channel_name}: Searching for new post since {lower_limit}')
 
         right_period = list()
         best_post = None
-
-        check_upd_url = f"https://api.ifunny.mobi/v4/channels/{channel_id}/items?limit=1000"
+        print(f'\t\t\tTRIES = {tries}')
+        if tries > 20:
+            return None
+        check_upd_url = f"https://api.ifunny.mobi/v4/channels/{channel_id}/items?limit=500"
         if channel_id == 'featured':
-            check_upd_url = f'https://api.ifunny.mobi/v4/feeds/featured?limit=1000'
+            check_upd_url = f'https://api.ifunny.mobi/v4/feeds/featured?limit=500'
         all_posts = requests.get(check_upd_url, headers=self.headers)
 
         if all_posts.status_code == 200:
@@ -240,36 +242,43 @@ class Api:
 
                 pre_lower_limit = DataBase.preLastUpdate(DataBase(), channel_id)
                 pre_lower_limit = datetime.strptime(pre_lower_limit, DT_FORMAT)  # get previous update time
-
-                if tries >= 1:  # if previous period have no posts too
+                if tries == 0:
+                    self.lower_limit = pre_lower_limit
+                if 1 <= tries < 10:  # if previous period have no posts too
                     self.lower_limit = self.lower_limit - timedelta(hours=5)  # iterating beck with 5 hours step
                     pre_lower_limit = self.lower_limit  # until we get post in this time period
 
-                result = self.UpdatePost(channel_id, channel_name, pre_lower_limit, upper_limit, tries + 1)
+                elif tries >= 10:  # if previous period have no posts too
+                    self.lower_limit = self.lower_limit - timedelta(days=1)  # iterating beck with 1 day step
+                    pre_lower_limit = self.lower_limit  # until we get post in this time period that wasn't sended
+
+                result = self.UpdatePost(channel_id, channel_name, pre_lower_limit, tries + 1)
                 return result
             else:  # if we have post in period and can take it
                 top_smiles = sorted(right_period, key=lambda post: post.smiles, reverse=True)  # sorting by smiles
                 position = 0
+                for post in top_smiles:
+                    d = DataBase.DuplicatePost(DataBase(), channel_name, post.id)
+                    print(post.publish_at, post.url, d)
                 if DataBase.DuplicatePost(DataBase(), channel_name, top_smiles[position].id) is True:
                     while DataBase.DuplicatePost(DataBase(), channel_name, top_smiles[position].id) is True:
                         position += 1
                         if position >= len(top_smiles):
                             logging.warning(f'UpdatePost: get not enough posts that wasn`t sended before in this period')
-                            self.lower_limit = self.lower_limit - timedelta(hours=5)  # iterating beck with 5 hours step
+                            self.lower_limit = self.lower_limit - timedelta(hours=5)  # iterating back with 5 hours step
                             pre_lower_limit = self.lower_limit  # until we get post in this time period
-                            result = self.UpdatePost(channel_id, channel_name, pre_lower_limit, upper_limit, tries + 1)
-                            DataBase.lastUpdate(DataBase(), 'set', channel_id, upper_limit)
+                            result = self.UpdatePost(channel_id, channel_name, pre_lower_limit, tries + 1)
 
                             logging.info(f'Finished searching for updates in category: {channel_id}')
                             return result
                         try:
                             best_post = top_smiles[position]
-                            DataBase.lastUpdate(DataBase(), 'set', channel_id, upper_limit)
                         except:
                             best_post = None
 
                     logging.info(f'Finished searching for updates in category: {channel_id}')
+
                     return best_post  # get one of the most smiled post
 
-                DataBase.lastUpdate(DataBase(), 'set', channel_id, upper_limit)
                 return top_smiles[position]
+

@@ -33,10 +33,11 @@ for ch_id, ch_name in Api.getChannels():
             id_to_link[ch_id] = channels_info[name]['telegram']
             channels_info[name]['api_id'] = ch_id
             DataBase.WriteChannels(ch_id, ch_name, channels_info[name]['telegram'])
-
+channels_info['featured']['api_id'] = 'featured'
 id_to_name['featured'] = 'featured'
 id_to_link['featured'] = favorite_id
-DataBase.WriteChannels('featured', 'featured', favorite_id)
+#DataBase.WriteChannels('featured', 'featured', favorite_id)
+
 
 
 async def send_post(channel_id, chat, post, send_time):
@@ -83,7 +84,7 @@ async def send_post(channel_id, chat, post, send_time):
     logging.info(f'№{post.id} send in {float((send_time - to_send_time) * 1000).__round__(2)} ms')
 
     if success:  # if message was send with right method - add post in Database and update id and date
-        print()
+        print('AddPost',key_by_value(channels_links, chat))
         DataBase.AddPost(message.message_id, post, key_by_value(channels_links, chat))
         DataBase.Last_id('set', channel_id, post.id)
         DataBase.lastUpdate('set', channel_id, datetime.now().strftime(DT_FORMAT))
@@ -197,16 +198,15 @@ async def CheckUpdates():
                     break
             all_channels = DataBase.ReadChannels()
             for chName, chId in all_channels:
+
                 lower_limit = DataBase.lastUpdate('get', chId)
                 lower_limit = datetime.strptime(lower_limit, DT_FORMAT)
-                Api.lower_limit = lower_limit
 
-                upper_limit = datetime.now().strftime(DT_FORMAT)
-                upper_limit = datetime.strptime(upper_limit, DT_FORMAT)
-                logging.info(f'Search post since {lower_limit} to {upper_limit} for channel: {chName}')
+                logging.info(f'Search post since {lower_limit} for channel: {chName}')
+                print('CheckUpdates', key_by_value(channels_info, {'telegram': id_to_link[chId], 'api_id': chId}))
 
                 channel_table = key_by_value(channels_info, {'telegram': id_to_link[chId], 'api_id': chId})
-                new_post = (Api.UpdatePost(chId, 'test', lower_limit, upper_limit, 0),)
+                new_post = (Api.UpdatePost(chId, channel_table, lower_limit, 0),)
 
                 if len(new_post) > 0 and new_post[0] is not None:
                     logging.info(f'Found a new post:  {new_post[0].id}, {new_post[0].publish_at}  {new_post[0].url}')
