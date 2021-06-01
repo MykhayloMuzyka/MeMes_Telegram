@@ -281,7 +281,7 @@ if __name__ == '__main__':
                     '\t- /clear_channels : to delete all messages from every channel\n'
                     '\t- /autopost : start waiting for new updates and post them to their channels\n'
                     '\t\t - /exit: to stop the script\n'
-                    'Input your command :').strip().lower()
+                      'Input your command :').strip().lower()
         if cmd == '/fill_channels':
             loop.run_until_complete(fill_channels())
         elif cmd == '/autopost':
