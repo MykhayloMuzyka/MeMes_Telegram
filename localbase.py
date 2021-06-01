@@ -1,12 +1,11 @@
 import time
 
-from settings import PrintException
-from settings import channels_links, DT_FORMAT, key_by_value, channels_info
+from settings import channels_links, DT_FORMAT
 from aiogram.types import base
 from typing import Optional
 import sqlite3
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 TABLES = dict()
 
 TABLES['channels'] = '''
@@ -57,8 +56,8 @@ class DataBase:
         except sqlite3.Error as err:
             print(err)
 
-        except Exception:
-            PrintException()
+        except Exception as err:
+            logging.critical(f'Init Database: {err}')
 
     def createTables(self, tables: dict):
         result = True
@@ -126,9 +125,9 @@ class DataBase:
             result = list()
             logging.error(f'ReadChannels: {err}')
 
-        except Exception:
+        except Exception as err:
             result = list()
-            PrintException()
+            logging.error(f'ReadChannels: {err}')
 
         finally:
             self.cursor.close()
@@ -243,7 +242,7 @@ class DataBase:
             return exception_return
 
         except TypeError as err:
-            logging.error(f' lpreastUpdate: maybe function get None from Database {err}')
+            logging.error(f'prelast Update: maybe function get None from Database {err}')
             return exception_return
 
     def AddPost(self, message_id, post, channel_name: str):
@@ -257,8 +256,8 @@ class DataBase:
             self.cursor.close()
             return True
         except sqlite3.Error as err:
-                self.cursor.close()
-                logging.error(err)
+            self.cursor.close()
+            logging.error(err)
 
         except Exception as err:
             logging.error(f' AddPost: {err}')
@@ -277,7 +276,3 @@ class DataBase:
         except sqlite3.Error as err:
             self.cursor.close()
             logging.error(f'DuplicatePost: {err}')
-
-
-
-

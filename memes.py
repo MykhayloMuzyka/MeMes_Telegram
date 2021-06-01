@@ -1,20 +1,14 @@
-import json
 from datetime import datetime, timedelta
+from localbase import DataBase
 from settings import *
 from PIL import Image
 import urllib.request
 import numpy as np
-import pytesseract
 
-from localbase import DataBase
 import requests
 import logging
 import time
 import cv2
-
-import logging
-
-logging.basicConfig(level=logging.INFO)
 
 
 class Post:
@@ -203,17 +197,16 @@ class Api:
     def UpdatePost(self, channel_id, channel_name, lower_limit, tries):
         """
         Сhecks current channel for new posts since the last one written to the database.
-        :param tries: set this parameter to Zero, its for recursion searaching of result
+        :param tries: set this parameter to Zero, its for recursion searching of result
         :param channel_name: channel name from DB that you want to update
-        :param upper_limit: latest moment for  post publish date (real time usually)
         :param lower_limit: earliest moment for  post publish date (previous message sending usually)
         :param channel_id: ID from API for the category this post is from or 'featured'
 
-        :return: if channel needs update return list() of Post() with best post from last period, else return empty list()
+        :return: if channel needs update return list() of Post() with best post from last period,
+        else return empty list()
         """
         logging.info(f'{channel_name}: Searching for new post since {lower_limit}')
 
-        right_period = list()
         best_post = None
         print(f'\t\t\tTRIES = {tries}')
         if tries > 20:
@@ -255,7 +248,7 @@ class Api:
                 result = self.UpdatePost(channel_id, channel_name, pre_lower_limit, tries + 1)
                 return result
             else:  # if we have post in period and can take it
-                top_smiles = sorted(right_period, key=lambda post: post.smiles, reverse=True)  # sorting by smiles
+                top_smiles = sorted(right_period, key=lambda s_post: s_post.smiles, reverse=True)  # sorting by smiles
                 position = 0
                 for post in top_smiles:
                     d = DataBase.DuplicatePost(DataBase(), channel_name, post.id)
@@ -264,7 +257,7 @@ class Api:
                     while DataBase.DuplicatePost(DataBase(), channel_name, top_smiles[position].id) is True:
                         position += 1
                         if position >= len(top_smiles):
-                            logging.warning(f'UpdatePost: get not enough posts that wasn`t sended before in this period')
+                            logging.warning(f"UpdatePost:get not enough posts that wasn't sended before in this period")
                             self.lower_limit = self.lower_limit - timedelta(hours=5)  # iterating back with 5 hours step
                             pre_lower_limit = self.lower_limit  # until we get post in this time period
                             result = self.UpdatePost(channel_id, channel_name, pre_lower_limit, tries + 1)
@@ -281,4 +274,3 @@ class Api:
                     return best_post  # get one of the most smiled post
 
                 return top_smiles[position]
-

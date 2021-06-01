@@ -1,7 +1,6 @@
 from datetime import datetime
 
 from telethon.tl.types import PeerChannel, InputPeerEmpty
-from telethon.tl.types.messages import Messages
 from aiogram import executor, Dispatcher, Bot
 from telethon.sync import TelegramClient
 from localbase import DataBase, TABLES
@@ -13,7 +12,8 @@ import aiogram
 import asyncio
 import time
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(filename='logging.log', level=logging.WARNING, format='%(name)s - %(levelname)s - %(message)s')
+logging.warning('Script was Started')
 
 Api = Api()
 DataBase = DataBase()
@@ -36,8 +36,7 @@ for ch_id, ch_name in Api.getChannels():
 channels_info['featured']['api_id'] = 'featured'
 id_to_name['featured'] = 'featured'
 id_to_link['featured'] = favorite_id
-#DataBase.WriteChannels('featured', 'featured', favorite_id)
-
+DataBase.WriteChannels('featured', 'featured', favorite_id)
 
 
 async def send_post(channel_id, chat, post, send_time):
@@ -84,7 +83,7 @@ async def send_post(channel_id, chat, post, send_time):
     logging.info(f'№{post.id} send in {float((send_time - to_send_time) * 1000).__round__(2)} ms')
 
     if success:  # if message was send with right method - add post in Database and update id and date
-        print('AddPost',key_by_value(channels_links, chat))
+        print('AddPost', key_by_value(channels_links, chat))
         DataBase.AddPost(message.message_id, post, key_by_value(channels_links, chat))
         DataBase.Last_id('set', channel_id, post.id)
         DataBase.lastUpdate('set', channel_id, datetime.now().strftime(DT_FORMAT))
@@ -119,59 +118,15 @@ async def fill_channels():
                 logging.warning(f'№{post_num}: get Bad request: {err} ({post.url})')
                 await send_post(channel_id, id_to_link[channel_id], best_memes[channel_id][post_num], send_time)
 
-            except:
-                logging.error(PrintException())
+            except Exception as err:
+                logging.error(f'fill_channels unknown error : {err}')
         last_time = datetime.now().strftime(DT_FORMAT)
         DataBase.lastUpdate('set', channel_id, last_time)
 
-#
-# async def fill_favorite():
-#     best_favorites = Api.getFeatures()
-#     send_time = time.time()
-#
-#     for post_num in range(len(best_favorites)):
-#         post = best_favorites[post_num]
-#         send_time = time.time()
-#
-#         try:
-#             await send_post('featured', favorite_id, post, send_time)
-#             logging.info(f'№{post_num}: Send post ({post.url}) and update post_id in DB')
-#
-#         except aiogram.exceptions.RetryAfter as err:
-#             logging.warning(f'\t\t\t\t\t\tCATCH FLOOD CONTROL {err.timeout}')
-#             time.sleep(err.timeout)
-#             await send_post('featured', favorite_id, post, send_time)
-#
-#         except aiogram.exceptions.BadRequest as err:
-#             logging.warning(f'№{post_num}: get Bad request: {err} ({post.url})')
-#             await send_post('featured', favorite_id, post, send_time)
-#
-#         except:
-#             logging.error(PrintException())
-#     last_time = datetime.now().strftime(DT_FORMAT)
-#     DataBase.lastUpdate('set', 'featured', last_time)
-
-
-# async def fill_test():
-#     best_posts = Api.BestPosts()
-#     length = list()
-#     for channel_id in best_posts:
-#         length.append(len(best_posts[channel_id]))
-#     send_time = time.time()
-#     for post_num in range(max(length)):
-#         post = best_posts['5ed63a9f0c26185b832ccc3c'][post_num]
-#         try:
-#             await send_post(test_id, post, send_time)
-#             DataBase.Last_1000_id('set', '5ed63a9f0c26185b832ccc3c', post.id)
-#         except aiogram.exceptions.RetryAfter as err:
-#             logging.info(f'\t\t\t\t\t\tCATCH FLOOD CONTROL {err.timeout}')
-#             time.sleep(err.timeout)
-#             post_num -= 1
-#         except:
-#             PrintException()
-#     DataBase.lastUpdate('set', '5ed63a9f0c26185b832ccc3c', best_posts['5ed63a9f0c26185b832ccc3c'][-1].id)
 
 was_started = False
+
+
 async def CheckUpdates():
     global was_started
     timer = datetime.now().replace(hour=0, minute=3, second=0)
@@ -279,8 +234,8 @@ async def ClearChannel():
             peer_id = peer.channel_id
             channel = chats[peer_id]
             access_hash = channel.access_hash
-            name = channel.title
-            if name in channels_links.keys():
+            dialog_name = channel.title
+            if dialog_name in channels_links.keys():
                 to_clear.append([peer_id, access_hash])
         else:
             continue
@@ -312,16 +267,16 @@ async def ClearChannel():
         await client.disconnect()
 
 
-def repeat(coro, loop):
+def repeat(coro, arg_loop):
     logging.info(f'Check updating schedule at {datetime.now()}')
-    asyncio.ensure_future(coro(), loop=loop)
-    loop.call_later(DELAY, repeat, coro, loop)
+    asyncio.ensure_future(coro(), loop=arg_loop)
+    arg_loop.call_later(DELAY, repeat, coro, arg_loop)
 
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     while True:
-        cmd = input('There is list of comands:\n'
+        cmd = input('There is list of commands:\n'
                     '\t- /fill_channels :  to start sending 1000 best posts to every channel\n'
                     '\t- /clear_channels : to delete all messages from every channel\n'
                     '\t- /autopost : start waiting for new updates and post them to their channels\n'
@@ -337,4 +292,3 @@ if __name__ == '__main__':
             loop.run_until_complete(ClearChannel())
         elif cmd == '/exit':
             sys.exit()
-
