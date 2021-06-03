@@ -274,3 +274,4 @@ class DataBase:
         except sqlite3.Error as err:
             self.cursor.close()
             logging.error(f'DuplicatePost: {err}')
+
