@@ -12,9 +12,10 @@ import aiogram
 import asyncio
 import time
 
-logging.basicConfig(filename='logging.log', level=logging.WARNING, format='%(name)s - %(levelname)s - %(message)s')
-logging.warning('Script was Started')
+#logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(message)s', filename='logging.log')  #
 
+logging.basicConfig(level=logging.WARNING)
+logging.warning('Script was Started')
 Api = Api()
 DataBase = DataBase()
 
@@ -47,6 +48,7 @@ async def send_post(channel_id, chat, post, send_time):
     :param send_time: time before sending to make Log
     :return: if success True else False
     """
+
     message = 0000
     success = True
     post_filetype = post.url.strip()[-3:]
@@ -83,7 +85,6 @@ async def send_post(channel_id, chat, post, send_time):
     logging.info(f'№{post.id} send in {float((send_time - to_send_time) * 1000).__round__(2)} ms')
 
     if success:  # if message was send with right method - add post in Database and update id and date
-        print('AddPost', key_by_value(channels_links, chat))
         DataBase.AddPost(message.message_id, post, key_by_value(channels_links, chat))
         DataBase.Last_id('set', channel_id, post.id)
         DataBase.lastUpdate('set', channel_id, datetime.now().strftime(DT_FORMAT))
@@ -136,8 +137,9 @@ async def CheckUpdates():
     day = datetime.strptime(datetime.now().replace(hour=12, minute=0, second=0).strftime(DT_FORMAT), DT_FORMAT)
     evening = datetime.strptime(datetime.now().replace(hour=18, minute=0, second=0).strftime(DT_FORMAT), DT_FORMAT)
     now_time = datetime.now()
-    schedule = [morning, day, evening, at_start_update]
+    schedule = [at_start_update, morning, day, evening]
     for posting_time in schedule:
+        print(posting_time)
         diff = (now_time - posting_time).__abs__().total_seconds()
         dif_hours = int(diff // 3600)
         dif_minutes = int((diff % 3600) // 60)
@@ -146,6 +148,7 @@ async def CheckUpdates():
         difference = datetime.now().replace(hour=dif_hours, minute=dif_minutes, second=dif_seconds)
         logging.info(f'Difference between {posting_time} and {now_time} = {difference}| {difference <= timer:}')
         if difference <= timer:
+
             if posting_time == at_start_update:
                 if was_started is False:
                     was_started = True
@@ -158,17 +161,17 @@ async def CheckUpdates():
                 lower_limit = datetime.strptime(lower_limit, DT_FORMAT)
 
                 logging.info(f'Search post since {lower_limit} for channel: {chName}')
-                print('CheckUpdates', key_by_value(channels_info, {'telegram': id_to_link[chId], 'api_id': chId}))
 
                 channel_table = key_by_value(channels_info, {'telegram': id_to_link[chId], 'api_id': chId})
                 new_post = (Api.UpdatePost(chId, channel_table, lower_limit, 0),)
-
                 if len(new_post) > 0 and new_post[0] is not None:
+
                     logging.info(f'Found a new post:  {new_post[0].id}, {new_post[0].publish_at}  {new_post[0].url}')
                     send_time = time.time()
                     for post_num in range(len(new_post)):
                         post = new_post[post_num]
                         try:
+                            print(f"\n{chName}: {post.link} | {post.sm_per_hour} | {post.smiles} / {post.publish_at}\n")
                             await send_post(chId, id_to_link[chId], post, send_time)
                             logging.info(f'№{post_num}: Send post ({post.url}) and update post_id in DB')
 
@@ -286,9 +289,15 @@ if __name__ == '__main__':
             loop.run_until_complete(fill_channels())
         elif cmd == '/autopost':
             logging.info(f'Start Monitoring at {datetime.now()}')
-            loop.call_later(DELAY, repeat, CheckUpdates, loop)
-            executor.start_polling(dp)
+            # loop.call_later(DELAY, repeat, CheckUpdates, loop)
+            while True:
+                print('GO SEARCH')
+                loop.run_until_complete(CheckUpdates())
+                time.sleep(150)
+
+            # executor.start_polling(dp)
         elif cmd == '/clear_channels':
             loop.run_until_complete(ClearChannel())
         elif cmd == '/exit':
             sys.exit()
+

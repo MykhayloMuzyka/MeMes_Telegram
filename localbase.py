@@ -54,7 +54,7 @@ class DataBase:
             self.db = sqlite3.connect('{0}.db'.format(self.name))
 
         except sqlite3.Error as err:
-            print(err)
+            logging.error(f'Init Database: {err}')
 
         except Exception as err:
             logging.critical(f'Init Database: {err}')
@@ -193,11 +193,9 @@ class DataBase:
                 self.cursor = self.db.cursor()
                 self.cursor.execute(cmd_get)
                 record = self.cursor.fetchone()[0]
-                print('prelast = ', record)
                 self.cursor.execute(cmd_set_2, (record,))
                 self.db.commit()
                 time.sleep(1)
-                print('last = ', last_time)
                 self.cursor.execute(cmd_set)
                 self.db.commit()
                 self.cursor.close()

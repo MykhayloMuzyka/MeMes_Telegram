@@ -26,6 +26,10 @@ class Post:
         self.publish_at = datetime.fromtimestamp(item['publish_at'])
         self.link = item['link']
         self.smiles = item['num']['smiles']
+        self.sm_per_hour = None
+
+    def lifeTime(self):
+        return int((datetime.now() - self.publish_at).total_seconds().__round__(0) / 3600)
 
 
 class ImageReader:
@@ -208,7 +212,6 @@ class Api:
         logging.info(f'{channel_name}: Searching for new post since {lower_limit}')
 
         best_post = None
-        print(f'\t\t\tTRIES = {tries}')
         if tries > 20:
             return None
         check_upd_url = f"https://api.ifunny.mobi/v4/channels/{channel_id}/items?limit=500"
@@ -248,11 +251,17 @@ class Api:
                 result = self.UpdatePost(channel_id, channel_name, pre_lower_limit, tries + 1)
                 return result
             else:  # if we have post in period and can take it
-                top_smiles = sorted(right_period, key=lambda s_post: s_post.smiles, reverse=True)  # sorting by smiles
+                for meme in right_period:
+                    try:
+                        meme.sm_per_hour = meme.smiles / meme.lifeTime()
+                    except ZeroDivisionError:
+                        meme.sm_per_hour = meme.smiles / 0.01
+
+                top_smiles = sorted(right_period, key=lambda s_post: s_post.sm_per_hour, reverse=True)
+
                 position = 0
                 for post in top_smiles:
                     d = DataBase.DuplicatePost(DataBase(), channel_name, post.id)
-                    print(post.publish_at, post.url, d)
                 if DataBase.DuplicatePost(DataBase(), channel_name, top_smiles[position].id) is True:
                     while DataBase.DuplicatePost(DataBase(), channel_name, top_smiles[position].id) is True:
                         position += 1
@@ -274,3 +283,4 @@ class Api:
                     return best_post  # get one of the most smiled post
 
                 return top_smiles[position]
+
