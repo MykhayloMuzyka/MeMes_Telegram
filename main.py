@@ -319,10 +319,10 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     while True:
         qes = input('Сделать отправку постов вне расписания при мониторинге?| y/n :\n').strip().lower()
-        if qes == 'y':
+        if qes == 'n':
             was_started = True
             break
-        elif qes == 'n':
+        elif qes == 'y':
             break
         else:
             pass
