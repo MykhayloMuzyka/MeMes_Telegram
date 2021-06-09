@@ -6,6 +6,9 @@ from typing import Optional
 import sqlite3
 import logging
 from datetime import datetime
+
+import pytz
+
 TABLES = dict()
 
 TABLES['channels'] = '''
@@ -16,6 +19,7 @@ TABLES['channels'] = '''
                         "channel_telegram" varchar(20) UNIQUE,
                         "last_1000_id"  varchar(20) UNIQUE,
                         "last_update_time" varchar(20),
+                        "prelast_update_time" varchar(20),
                         PRIMARY KEY("id" AUTOINCREMENT)
                         
                         );
@@ -60,6 +64,11 @@ class DataBase:
             logging.critical(f'Init Database: {err}')
 
     def createTables(self, tables: dict):
+        """
+        Метод создания таблиц в БД
+        :param tables: Словарь значения котрого SQL запросы по созданию таблиц
+        :return: True если таблицы созданы успешно иначе False
+        """
         result = True
         for table in tables:
             try:
@@ -82,6 +91,13 @@ class DataBase:
         return result
 
     def WriteChannels(self, ch_id, ch_name, channel_telegram):
+        """
+        Запись указанного канала в БД
+        :param ch_id: Api ID канала
+        :param ch_name: Имя канала
+        :param channel_telegram: Telegram ID канала
+        :return: True если канал успешно записан успешно иначе False
+        """
         cmd = "insert into channels (channel_id, name, channel_telegram) values (?, ?, ?)"
         exc_cmd = f"update channels set channel_id = '{ch_id}', name = '{ch_name}', " \
                   f"channel_telegram = '{channel_telegram}' where channel_telegram = '{channel_telegram}'"
@@ -109,8 +125,9 @@ class DataBase:
 
     def ReadChannels(self):
         """
-        Get Categories from Database
-        :return: list() in format ([name_1, channel_id_1],[name_2, channel_id_2], ...) if success, else empty list()
+        Получить список данных о каналах их БД
+        :return: list() в формате ([name_1, channel_id_1],[name_2, channel_id_2], ...) если все в порядке,
+            иначе пустой список
         """
         result = list()
         cmd = "select name, channel_id from channels"
@@ -136,12 +153,12 @@ class DataBase:
     def Last_id(self, flag, channel_id: str, last_id: Optional[base.String] = None):
         """
 
-        :param channel_id:
-        :param last_id:
-        :param flag: set = write and update last sended post ID
-                   :get = read end use last ID that wrote in DB
-        :return: set: True or False
-                 get: last ID from DB
+        :param channel_id: Api ID канала
+        :param last_id: ID последнего отправленного поста для обновления в БД
+        :param flag: set = записать и обновить последний отправленный ID в БД
+                   :get = считать последний записанный ID из БД
+        :return: set: True если запись прошла успешно иначе  False
+                 get: значение последнего ID из БД
         """
         cmd_set = f"update channels set `last_1000_id` = '{last_id}' where `channel_id` = '{channel_id}'"
         cmd_get = f"select `last_1000_id` from channels where `channel_id` = '{channel_id}'"
@@ -175,18 +192,17 @@ class DataBase:
         """
 
         :param last_time:
-        :param channel_id: choose channel to working with
-        :param flag: set = write and update last sended post ID
-                   :get = read end use last ID that wrote in DB
-        :return: set: True or False
-                 get: last ID from DB
-        :return:
+        :param channel_id: ID канала
+        :param flag: set =записать и обновить последний отосланный пост в БД
+                   :get = считать последний записанный ID из БД
+        :return: set: True если запись прошла успешно иначе  False
+                 get: значение последнего ID из БД
         """
 
         cmd_get = f"select `last_update_time` from channels where `channel_id` = '{channel_id}'"
         cmd_set = f"update channels set `last_update_time` = '{last_time}' where `channel_id` = '{channel_id}'"
         cmd_set_2 = f"update `channels` set `prelast_update_time` = (?) where `channel_id` = '{channel_id}'"
-        exception_return = datetime.now()
+        exception_return = datetime.now().astimezone(pytz.timezone('Europe/Kiev'))
         exception_return = exception_return.replace(day=exception_return.day + 2).strftime(DT_FORMAT)
         if flag == 'set':
             try:
@@ -224,8 +240,13 @@ class DataBase:
             raise MyError("Wrong flag value, use 'get or 'set")
 
     def preLastUpdate(self, channel_id):
+        """
+
+        :param channel_id: ID канала из АПИ
+        :return: время предполседней отправки в виде строки
+        """
         cmd = f"select prelast_update_time from `channels` where channel_id = '{channel_id}'"
-        exception_return = datetime.now()
+        exception_return = datetime.now().astimezone(pytz.timezone('Europe/Kiev'))
         exception_return = exception_return.replace(day=exception_return.day + 2).strftime(DT_FORMAT)
         try:
             self.cursor = self.db.cursor()
@@ -244,6 +265,13 @@ class DataBase:
             return exception_return
 
     def AddPost(self, message_id, post, channel_name: str):
+        """
+
+        :param message_id: ID собщения которое содердит в себе пост
+        :param post: экемпляр класса Post() котороый нужно отправить
+        :param channel_name: имя канала в БД
+        :return: True если запись прошла успешно иначе False
+        """
 
         cmd = f'insert into `{channel_name}` (message_id, post_id, post_url, post_type) values (?, ?, ?, ?)'
         try:
@@ -262,6 +290,12 @@ class DataBase:
             return False
 
     def DuplicatePost(self, channel_name, post_id):
+        """
+        Проверка поста на наличие его дубликатов в базе данных
+        :param channel_name: имя канала в БД
+        :param post_id: ID поста который требуется проверить
+        :return: True если у поста есть дубликат, False если нет
+        """
         cmd = f"select * from `{channel_name}` where post_id = '{post_id}'"
         try:
             self.cursor = self.db.cursor()
@@ -274,4 +308,3 @@ class DataBase:
         except sqlite3.Error as err:
             self.cursor.close()
             logging.error(f'DuplicatePost: {err}')
-
