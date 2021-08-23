@@ -1,16 +1,15 @@
-import linecache
-import sys
-import my_data
-
+my_phone = '+380661774708'
+my_id = '396247215'
+my_test_id = '-1001304448917'
 
 TOKEN = '1837010234:AAFv_KXX2Y3d5E1fnG1fPDOfN0-p1ttb7yg'  # Memes_bot
 
 api_id = 5066297
 api_hash = 'adafd7c34ac0199fba4a7e81630208ff'
 
-phone = my_data.my_phone
-personal_id = my_data.my_id
-test_id = my_data.my_test_id
+phone = my_phone
+personal_id = my_id
+test_id = my_test_id
 
 channels_links = {'девушки': '-1001470907718',
                   'видео': '-1001294452856',
@@ -37,4 +36,3 @@ channels_info = {
 
 favorite_id = '-1001467928277'
 DT_FORMAT = '%Y-%m-%d %H:%M:%S'
-

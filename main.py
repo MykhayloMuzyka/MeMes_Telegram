@@ -1,6 +1,8 @@
 from datetime import datetime
 import time
 
+import sys
+
 import pytz
 
 from telethon.tl.types import PeerChannel, InputPeerEmpty
@@ -10,13 +12,13 @@ from telethon.sync import TelegramClient
 from aiogram import Dispatcher, Bot
 import aiogram
 
-from localbase import DataBase, TABLES
+from MeMes_Telegram.db.localbase import DataBase, TABLES
 
 from memes import Api, ImageReader
 
 from utils import scheldue_difference
 
-from settings import *
+from MeMes_Telegram.confgis.settings import *
 import logging
 import asyncio
 
@@ -71,21 +73,20 @@ def key_by_value(dictionary, value):
     return result
 
 
-async def send_post(channel_id, chat, post, send_time):
+async def send_post(channel_id, chat, post, send_time: 0):
     """
     :param channel_id: ID канала из апи для текцщего поста
     :param chat: Telegram ID канала телеграмм для постов этой категории
     :param post: экземпляр класса Post() который нужно отправить в телеграм
-    :param send_time: время вызова функции
+    :param send_time: время вызова функции, по умолчанию 0
     :return: True при успешной отправке, иначе False
     """
     post_filetype = post.url.strip()[-3:]
-    timeout = abs(2 - float(time.time() - send_time).__round__(2))
-
-    # Если попытка отправть сообщение быстрее чем через 2 секунды подождать до этого срока
-    if float(time.time() - send_time).__round__(2) < 2:
-        time.sleep(timeout)
-        logging.info(f'#{post.id}: Timeout before sending =  {timeout}')
+    if send_time != 0:
+        timeout = abs(2 - float(time.time() - send_time).__round__(2))
+        if float(time.time() - send_time).__round__(2) < 2:
+            time.sleep(timeout)
+            logging.info(f'#{post.id}: Timeout before sending =  {timeout}')
 
     to_send_time = time.time()
 

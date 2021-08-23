@@ -2,11 +2,13 @@ from datetime import datetime, timedelta
 
 import pytz
 
-from localbase import DataBase
-from settings import *
+from MeMes_Telegram.db.localbase import DataBase
+from MeMes_Telegram.confgis.settings import *
 from PIL import Image
 import urllib.request
 import numpy as np
+
+from typing import Union
 
 import requests
 import logging
@@ -122,7 +124,7 @@ class Api:
 
         self.lower_limit = None
 
-    def get_channels(self):
+    def get_channels(self) -> Union[list, bool]:
         """
         :return: Список категорий в АПИ в виде ([id_1, name_1], [id_2, name_2], ...) или False в случае неудачи
         """
@@ -135,7 +137,8 @@ class Api:
             return result
         return False
 
-    def threading_best_posts(self, posts: list, channel_info):
+    def threading_best_posts(self, posts: list, channel_info: str):
+        """Берет посты посты по которым нужно пройтись и собрать информацию, channel_info текущего канала"""
         all_posts = []
         for i in posts:
             content = i['data']['content']
@@ -167,7 +170,7 @@ class Api:
             from_old_to_new = sorted(best_posts, key=lambda post: post.publish_at)
             self.result[channel_info[0]] = from_old_to_new
 
-    def best_posts(self):
+    def best_posts(self) -> dict:
         """
         Проход по всем существующим постам в АПИ по всем имеющимся катерогиям
         для отбора 1000 лучших по лайкам постов в каждом канале
@@ -175,7 +178,6 @@ class Api:
             словарь хранящий списки лучшей 1000 по ключу ID канала
         """
         channels = self.get_channels()
-        print(channels)
         channels.append(['featured', 'featured'])
         for channel_num, channel_info in enumerate(channels):
 
@@ -240,6 +242,7 @@ class Api:
                 if post.publish_at < lower_limit:
                     oldest_post = posts.index(post)
                     break
+
             #  Отсавляем на проверку только входящие в рамки времени посты
             right_period = posts[0:oldest_post]
 
