@@ -1,17 +1,32 @@
 from datetime import datetime
+import time
 
 import pytz
+
 from telethon.tl.types import PeerChannel, InputPeerEmpty
-from aiogram import executor, Dispatcher, Bot
-from telethon.sync import TelegramClient
-from localbase import DataBase, TABLES
 from telethon import functions, errors
+from telethon.sync import TelegramClient
+
+from aiogram import Dispatcher, Bot
+import aiogram
+
+from localbase import DataBase, TABLES
+
 from memes import Api, ImageReader
+
+from utils import scheldue_difference
+
 from settings import *
 import logging
-import aiogram
 import asyncio
-import time
+
+# import argparse
+#
+# # Будет изменено
+# parser = argparse.ArgumentParser(description='Work with channels')
+# parser.add_argument('fill_channels', help='Заполнение каналов')
+# parser.add_argument('сlear_channels', help='Очистка каналов')
+# parser.add_argument('autopost', help='Мониторинг новых постов и отправка по расписанию')
 
 logging.basicConfig(level=logging.DEBUG, format='%(name)s - %(levelname)s - %(message)s', filename='logging.log')
 
@@ -22,13 +37,14 @@ DataBase = DataBase()
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 
-DataBase.createTables(TABLES)
-channels = Api.getChannels()
+DataBase.create_tables(TABLES)
+channels = Api.get_channels()
 
 # Определение существующих каналов, запись из в БД и установка доступа к имени по ID и к Telegram_ID по API_ID
 id_to_link = dict()
 id_to_name = dict()
-for ch_id, ch_name in Api.getChannels():
+
+for ch_id, ch_name in Api.get_channels():
     id_to_name[ch_id] = ch_name
     for name in channels_info:
         if name in ch_name:
@@ -63,13 +79,10 @@ async def send_post(channel_id, chat, post, send_time):
     :param send_time: время вызова функции
     :return: True при успешной отправке, иначе False
     """
-
-    message = 0000
-    success = True
     post_filetype = post.url.strip()[-3:]
     timeout = abs(2 - float(time.time() - send_time).__round__(2))
 
-    # Если попытка отправиьт сообщение быстрее чем через 2 секунды подождать до этого срока
+    # Если попытка отправть сообщение быстрее чем через 2 секунды подождать до этого срока
     if float(time.time() - send_time).__round__(2) < 2:
         time.sleep(timeout)
         logging.info(f'#{post.id}: Timeout before sending =  {timeout}')
@@ -79,7 +92,7 @@ async def send_post(channel_id, chat, post, send_time):
     if post_filetype in ('jpg', 'png'):
         image = ImageReader(post)
         if image.watermark():
-            message = await bot.send_photo(chat, image.Crop())
+            message = await bot.send_photo(chat, image.crop())
 
         else:
             logging.info(f'№{post.id} Don`t have watermark (no need to crop image) {post.url}')
@@ -88,30 +101,31 @@ async def send_post(channel_id, chat, post, send_time):
     elif post_filetype in ('mp4',):
         try:
             message = await bot.send_video(chat, post.url, caption=post.title)
-        except:
-            try:
-                message = await bot.send_video(chat, post.url, caption=post.title)
-            except:
-                success = False
+        except Exception as e:
+            logging.info('Cant send video', e)
+            return False
 
     elif post_filetype in ('gif',):
         try:
             message = await bot.send_animation(chat, post.url, caption=post.title)
-        except:
-            success = False
+
+        except Exception as e:
+            logging.info('Cant send', e)
+            return False
+
     else:
         logging.warning(f'Unknown Post.type ({post.type}) at {post.url}')
-        success = False
+        return False
 
     send_time = time.time()
     logging.info(f'№{post.id} send in {float((send_time - to_send_time) * 1000).__round__(2)} ms')
 
-    if success:  # Есди пост был отправлен то добавить информацию о нем в БД
-        DataBase.AddPost(message.message_id, post, key_by_value(channels_links, chat))
-        DataBase.Last_id('set', channel_id, post.id)
-        DataBase.lastUpdate('set', channel_id, datetime.now().astimezone(pytz.timezone('Europe/Kiev')).strftime(DT_FORMAT))
-        return True
-    return False
+    # Есди пост был отправлен то добавить информацию о нем в БД
+    DataBase.add_post(message.message_id, post, key_by_value(channels_links, chat))
+    DataBase.last_id('set', channel_id, post.id)
+    DataBase.last_update('set', channel_id,
+                         datetime.now().astimezone(pytz.timezone('Europe/Kiev')).strftime(DT_FORMAT))
+    return True
 
 
 async def fill_channels():
@@ -119,12 +133,10 @@ async def fill_channels():
     Функция заполнения всех имеющихся телеграм каналов тысячей лучших постов в каждом
     :return:
     """
-
-    best_memes = Api.BestPosts()
-
+    best_memes = Api.best_posts()
+    logging.info('Fill channels начала работать')
     for channel_id in best_memes:
-        last_post_id = DataBase.Last_id('get', channel_id)
-
+        last_post_id = DataBase.last_id('get', channel_id)
         # Если заполнение было прерввано то поиск поста с которого нужно продолжить
         for post_num, post in enumerate(best_memes[channel_id]):
             if post.id == last_post_id:
@@ -149,13 +161,13 @@ async def fill_channels():
             except Exception as err:
                 logging.error(f'fill_channels unknown error : {err}')
         last_time = datetime.now().astimezone(pytz.timezone('Europe/Kiev')).strftime(DT_FORMAT)
-        DataBase.lastUpdate('set', channel_id, last_time)
+        DataBase.last_update('set', channel_id, last_time)
 
 
 was_started = False
 
 
-async def CheckUpdates():
+async def check_updates():
     """
     Проверка наличи новых постов в АПИ и отправка лучшего в каждий соответсвующий канал по расписанию
     :return:
@@ -172,19 +184,14 @@ async def CheckUpdates():
 
     schedule = [morning, day, evening, at_start_update]
     for posting_time in schedule:
-
         # Вычислание разницы между нынешним временем и временем в расписании
-        diff = (dt_now - posting_time).__abs__().total_seconds()
-        dif_hours = int(diff // 3600)
-        dif_minutes = int((diff % 3600) // 60)
-        dif_seconds = int(diff % 60)
-
+        dif_hours, dif_minutes, dif_seconds = scheldue_difference.difference(dt_now=dt_now, posting_time=posting_time)
         difference = dt_now.replace(hour=dif_hours, minute=dif_minutes, second=dif_seconds)
+
         logging.info(f'Difference between {posting_time} and {dt_now} = {difference}| {difference <= timer:}')
 
         # Если разница между нужным для отправки временем и текущим меньше значения timer
         if difference <= timer:
-
             if posting_time == at_start_update:
                 if was_started is False:
                     was_started = True
@@ -193,15 +200,16 @@ async def CheckUpdates():
             all_channels = DataBase.ReadChannels()
             for chName, chId in all_channels:
                 try:
-                    lower_limit = DataBase.lastUpdate('get', chId)
+                    lower_limit = DataBase.last_update('get', chId)
                     lower_limit = datetime.strptime(lower_limit, DT_FORMAT)
                 except TypeError:
-                    lower_limit = datetime.strptime(dt_now.replace(hour=9, minute=0, second=0).strftime(DT_FORMAT), DT_FORMAT)
+                    lower_limit = datetime.strptime(dt_now.replace(hour=9, minute=0, second=0).strftime(DT_FORMAT),
+                                                    DT_FORMAT)
 
                 logging.info(f'Search post since {lower_limit} for channel: {chName}')
 
                 channel_table = key_by_value(channels_info, {'telegram': id_to_link[chId], 'api_id': chId})
-                new_post = (Api.UpdatePost(chId, channel_table, lower_limit, 0),)
+                new_post = (Api.update_post(chId, channel_table, lower_limit, 0),)
                 if len(new_post) > 0 and new_post[0] is not None:
 
                     logging.info(f'Found a new post:  {new_post[0].id}, {new_post[0].publish_at}  {new_post[0].url}')
@@ -227,12 +235,13 @@ async def CheckUpdates():
                                 continue
 
                     new_time = datetime.now().astimezone(pytz.timezone('Europe/Kiev')).strftime(DT_FORMAT)
-                    DataBase.lastUpdate('set', chId, new_time)
+                    DataBase.last_update('set', chId, new_time)
                 else:
-                    logging.error(f"No content to send at {datetime.now().astimezone(pytz.timezone('Europe/Kiev'))} {new_post}")
+                    logging.error(
+                        f"No content to send at {datetime.now().astimezone(pytz.timezone('Europe/Kiev'))} {new_post}")
 
 
-async def ClearChannel():
+async def clear_channel():
     """
     Очистка всех имеющихся каналов от всех сообщений
     :return:
@@ -329,20 +338,23 @@ if __name__ == '__main__':
 
     while True:
         cmd = input('Вот список комманд:\n'
+                    '\t- /mailing :  Рассылка сообщения по всем чатам\n'
                     '\t- /fill_channels :  начать заполенеие каналов по 1000 лучших постов\n'
                     '\t- /clear_channels : очистить все сообщения из всех каналов\n'
                     '\t- /autopost : начать монитроринг новых постов и их отправку по расписанию\n'
                     '\t\t - /exit: to stop the script\n'
                     'Введите вашу команду :').strip().lower()
         if cmd == '/fill_channels':
+            logging.info(f'/fill_channels is working')
             loop.run_until_complete(fill_channels())
         elif cmd == '/autopost':
+            logging.info(f'/autopost is working')
             logging.info(f"Start Monitoring at {datetime.now().astimezone(pytz.timezone('Europe/Kiev'))}")
             while True:
-                loop.run_until_complete(CheckUpdates())
+                loop.run_until_complete(check_updates())
                 time.sleep(60 * 3)
         elif cmd == '/clear_channels':
-            loop.run_until_complete(ClearChannel())
+            logging.info(f'/clear_channels is working')
+            loop.run_until_complete(clear_channel())
         elif cmd == '/exit':
             sys.exit()
-

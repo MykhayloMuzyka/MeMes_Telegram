@@ -7,6 +7,8 @@ import sqlite3
 import logging
 from datetime import datetime
 
+from exception.exception import FlagError
+
 import pytz
 
 TABLES = dict()
@@ -35,6 +37,7 @@ for name in channels_links:
                         PRIMARY KEY("id" AUTOINCREMENT)
                         );
                     '''
+
     TABLES['featured'] = f'''
                         CREATE TABLE "featured" (
                         "id"	INTEGER NOT NULL,
@@ -45,10 +48,6 @@ for name in channels_links:
                         PRIMARY KEY("id" AUTOINCREMENT)
                         );
                     '''
-
-
-class MyError(Exception):
-    pass
 
 
 class DataBase:
@@ -63,7 +62,7 @@ class DataBase:
         except Exception as err:
             logging.critical(f'Init Database: {err}')
 
-    def createTables(self, tables: dict):
+    def create_tables(self, tables: dict):
         """
         Метод создания таблиц в БД
         :param tables: Словарь значения котрого SQL запросы по созданию таблиц
@@ -150,9 +149,8 @@ class DataBase:
             self.cursor.close()
             return result
 
-    def Last_id(self, flag, channel_id: str, last_id: Optional[base.String] = None):
+    def last_id(self, flag, channel_id: str, last_id: Optional[base.String] = None):
         """
-
         :param channel_id: Api ID канала
         :param last_id: ID последнего отправленного поста для обновления в БД
         :param flag: set = записать и обновить последний отправленный ID в БД
@@ -186,9 +184,9 @@ class DataBase:
                 self.cursor.close()
                 return 0
         else:
-            raise MyError("Wrong flag value, use 'get or 'set")
+            raise FlagError
 
-    def lastUpdate(self, flag, channel_id: str, last_time: Optional[str] = None):
+    def last_update(self, flag, channel_id: str, last_time: Optional[str] = None):
         """
 
         :param last_time:
@@ -202,6 +200,7 @@ class DataBase:
         cmd_get = f"select `last_update_time` from channels where `channel_id` = '{channel_id}'"
         cmd_set = f"update channels set `last_update_time` = '{last_time}' where `channel_id` = '{channel_id}'"
         cmd_set_2 = f"update `channels` set `prelast_update_time` = (?) where `channel_id` = '{channel_id}'"
+
         exception_return = datetime.now().astimezone(pytz.timezone('Europe/Kiev'))
         exception_return = exception_return.replace(day=exception_return.day + 2).strftime(DT_FORMAT)
         if flag == 'set':
@@ -237,11 +236,10 @@ class DataBase:
                 self.cursor.close()
                 return exception_return
         else:
-            raise MyError("Wrong flag value, use 'get or 'set")
+            raise FlagError
 
-    def preLastUpdate(self, channel_id):
+    def pre_last_update(self, channel_id):
         """
-
         :param channel_id: ID канала из АПИ
         :return: время предполседней отправки в виде строки
         """
@@ -264,9 +262,8 @@ class DataBase:
             logging.error(f'prelast Update: maybe function get None from Database {err}')
             return exception_return
 
-    def AddPost(self, message_id, post, channel_name: str):
+    def add_post(self, message_id, post, channel_name: str):
         """
-
         :param message_id: ID собщения которое содердит в себе пост
         :param post: экемпляр класса Post() котороый нужно отправить
         :param channel_name: имя канала в БД

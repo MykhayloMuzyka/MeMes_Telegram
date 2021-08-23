@@ -2,7 +2,8 @@ import linecache
 import sys
 import my_data
 
-TOKEN = '1736058357:AAF3OmRx7bLczhcsHJTJN6AHBruW1TSxzgw'  # Memes_bot
+
+TOKEN = '1837010234:AAFv_KXX2Y3d5E1fnG1fPDOfN0-p1ttb7yg'  # Memes_bot
 
 api_id = 5066297
 api_hash = 'adafd7c34ac0199fba4a7e81630208ff'
@@ -21,6 +22,7 @@ channels_links = {'девушки': '-1001470907718',
                   'отношения': '-1001351980116',
                   'featured': '-1001467928277'
                   }
+
 channels_info = {
     'девушки': {'telegram': '-1001470907718', 'api_id': None},
     'видео': {'telegram': '-1001294452856', 'api_id': None},

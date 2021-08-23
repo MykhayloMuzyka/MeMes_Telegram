@@ -13,6 +13,8 @@ import logging
 import time
 import cv2
 
+import threading
+
 
 class Post:
     def __init__(self, item, channel):
@@ -23,15 +25,15 @@ class Post:
 
         self.id = item['id']
         self.type = item['type']  # тип поста (картинка, видео, или анимация)
-        self.title: str = item['title']
+        self.title: str = item['title']  # названия значения из списка items
         self.url: str = item['url']
-        self.link = item['link']
+        self.link = item['link']  # ссылка на item
         self.channel = channel
         self.publish_at = datetime.fromtimestamp(item['publish_at'])  # время появления поста в API
         self.smiles = item['num']['smiles']  # Количество "лайков" набранного поста на исходном сайте
         self.sm_per_hour = None  # вычисляемый параметр "лайков в час" для выбора потенциально лучшего поста
 
-    def lifeTime(self):
+    def life_time(self):
         """
         Метод для определения втого времени как долго пост существует в АПИ на момент вызова метода
         :return: целое число минут жизни поста
@@ -58,7 +60,6 @@ class ImageReader:
         Проверка поста на наличие вотермарки в нижней части изображения
         :return: True если вотермарка была найдена иначе  False
         """
-
         start_time = time.time()
         img_main = Image.open(self.path)
         img_template = Image.open('img/temp.jpg')  # шаблон вотермарки статически хранящийся в проекте
@@ -86,7 +87,7 @@ class ImageReader:
             return True
         return False
 
-    def Crop(self):
+    def crop(self):
         """
         Обрезка нижней части изображения для избаления от вотермарки
         :return: обрезанный вариант изображения в виде открытого файла
@@ -101,6 +102,8 @@ class ImageReader:
 
 
 class Api:
+    result = dict()
+
     def __init__(self):
         self.headers = {
             'Accept': 'application/json,image/jpeg,image/webp,video/mp4',
@@ -108,7 +111,8 @@ class Api:
             'Accept-Language': 'ru-RU',
             'Messaging-Project': 'idaprikol.ru:idaprikol-60aec',
             'ApplicationState': '1',
-            'Authorization': 'Basic MDIzNTYxMzY2NDYxMzY2MzMzMkQ2NDMyMzU2MzJEMzQ2MzY0NjQyRDM4Mzg2MzM1MkQzMDMyMzQzNjYyMzkzOTMxNjEzNjY2MzZfUHpuNEQxMnNvSzo5Nzg0ZjE2MzZlYzdhYjE4YmI5YzczNmNhZjg0MzY1Mzc3M2M5Y2Mz',
+            'Authorization': "Basic MDIzNTYxMzY2NDYxMzY2MzMzMkQ2NDMyMzU2MzJEMzQ2MzY0NjQyRDM4Mzg2MzM1MkQzMDMyMzQzNjYy"
+                             "MzkzOTMxNjEzNjY2MzZfUHpuNEQxMnNvSzo5Nzg0ZjE2MzZlYzdhYjE4YmI5YzczNmNhZjg0MzY1Mzc3M2M5Y2Mz",
             'Host': 'api.ifunny.mobi',
             'Connection': 'close',
             'Accept-Encoding': 'gzip, deflate',
@@ -118,7 +122,7 @@ class Api:
 
         self.lower_limit = None
 
-    def getChannels(self):
+    def get_channels(self):
         """
         :return: Список категорий в АПИ в виде ([id_1, name_1], [id_2, name_2], ...) или False в случае неудачи
         """
@@ -131,26 +135,57 @@ class Api:
             return result
         return False
 
-    def BestPosts(self):
+    def threading_best_posts(self, posts: list, channel_info):
+        all_posts = []
+        for i in posts:
+            content = i['data']['content']
+            next_page = content['paging']['cursors']['next']
+            items = content['items']
+            all_posts.append(Post(items[0], channel_info[0]))
+
+            requests_time = 0
+            while content['paging']['hasNext'] is not False:
+                url = f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1000&next={next_page}"
+                if channel_info[1] == 'featured':
+                    url = f"https://api.ifunny.mobi/v4/feeds/featured?limit=1000&next={next_page}"
+
+                start_request = time.time()
+                posts = requests.get(url, headers=self.headers).json()
+                requests_time += time.time() - start_request
+
+                content = posts['data']['content']
+                items = content['items']
+                next_page = content['paging']['cursors']['next']
+
+                filtered = list(Post(item, channel_info[0]) for item in items)
+                all_posts += filtered
+
+            # Сортировка постов по лайкам от больших к меньшему
+            best_posts = sorted(all_posts, key=lambda post: post.smiles)
+
+            # Сортировка отставшейся тысячи по дате публикации от старых к новым
+            from_old_to_new = sorted(best_posts, key=lambda post: post.publish_at)
+            self.result[channel_info[0]] = from_old_to_new
+
+    def best_posts(self):
         """
         Проход по всем существующим постам в АПИ по всем имеющимся катерогиям
-        для отбора 1000 лусших по лайкам постов в каждом канале
+        для отбора 1000 лучших по лайкам постов в каждом канале
         :return: dict() : dict[channel_id] = list(Post(), Post(), ...)
             словарь хранящий списки лучшей 1000 по ключу ID канала
         """
-        begin_time = time.time()
-        channels = self.getChannels()
+        channels = self.get_channels()
+        print(channels)
         channels.append(['featured', 'featured'])
-        result = dict()
         for channel_num, channel_info in enumerate(channels):
 
             skip = True
-            start_time = time.time()
-            all_posts = list()
+            posts = []
 
             for name in channels_links:
                 if name in channel_info[1]:
                     skip = False  # если отсутвует информация от текущем канале пропустить его сканирование
+                    print(skip)
                     break
 
             if not skip:
@@ -159,46 +194,14 @@ class Api:
                     url = f'https://api.ifunny.mobi/v4/feeds/featured?limit=1'
 
                 # Первый запрос в апи для получения ID слудующей страницы
-                posts = requests.get(url, headers=self.headers).json()
-                content = posts['data']['content']
+                posts.append(requests.get(url, headers=self.headers).json())
+                x = threading.Thread(target=self.threading_best_posts, args=(posts, channel_info))
+                x.start()
 
-                next_page = content['paging']['cursors']['next']
-                items = content['items']
-                all_posts.append(Post(items[0], channel_info[0]))
+        time.sleep(50)
+        return self.result
 
-                requests_time = 0
-                while content['paging']['hasNext'] is not False:
-                    url = f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1000&next={next_page}"
-                    if channel_info[1] == 'featured':
-                        url = f"https://api.ifunny.mobi/v4/feeds/featured?limit=1000&next={next_page}"
-
-                    start_request = time.time()
-                    posts = requests.get(url, headers=self.headers).json()
-                    requests_time += time.time() - start_request
-
-                    content = posts['data']['content']
-                    items = content['items']
-                    next_page = content['paging']['cursors']['next']
-
-                    filtered = list(Post(item, channel_info[0]) for item in items)
-                    all_posts += filtered
-
-                # Сортировка постов по лайкам от больших к меньшему
-                best_posts = sorted(all_posts, key=lambda post: post.smiles, reverse=True)
-                best_posts = best_posts[:1000]
-
-                # Сортировка отставшейся тысячи по дате публикации от старых к новым
-                from_old_to_new = sorted(best_posts, key=lambda post: post.publish_at)
-                result[channel_info[0]] = from_old_to_new
-
-                logging.info(f'Category {channel_info[1]} filtered in {float(time.time() - start_time).__round__(2)} s')
-                logging.info(f'Category {channel_info[1]}  requests time = {float(requests_time).__round__(2)} s, '
-                             f'code time = {(float(time.time() - start_time) - float(requests_time)).__round__(2)}')
-
-        logging.info(f'BestPosts filtered in {float(time.time() - begin_time).__round__(2)} seconds')
-        return result
-
-    def UpdatePost(self, channel_id, channel_name, lower_limit, tries):
+    def update_post(self, channel_id, channel_name, lower_limit, tries):
         """
         Определение наличия новых постов заданном канала с момента последней отправки
         :param tries: установить этот параметр в ноль при вызове метода,
@@ -243,10 +246,11 @@ class Api:
             if len(right_period) == 0:  # Если в заданный период времени найдено 0 постов
 
                 # Переопределяем нижнюю границу поиска до предпоследней отправки в канал
-                pre_lower_limit = DataBase.preLastUpdate(DataBase(), channel_id)
+                pre_lower_limit = DataBase.pre_last_update(DataBase(), channel_id)
                 try:
                     pre_lower_limit = datetime.strptime(pre_lower_limit, DT_FORMAT)  # get previous update time
-                except:
+                except Exception as e:
+                    logging.info('An error was detected in the search lower bound', e)
                     pre_lower_limit = datetime.strptime(dt_now.replace(hour=9, minute=0, second=0).strftime(DT_FORMAT),
                                                         DT_FORMAT)
 
@@ -261,16 +265,16 @@ class Api:
                 # относительно последней заданной попытками метода границы
                 elif tries >= 10:
                     self.lower_limit = self.lower_limit - timedelta(days=1)  # iterating beck with 1 day step
-                    pre_lower_limit = self.lower_limit  # until we get post in this time period that wasn't sended
+                    pre_lower_limit = self.lower_limit  # until we get post in this time period that wasn't send
 
-                result = self.UpdatePost(channel_id, channel_name, pre_lower_limit, tries + 1)
+                result = self.update_post(channel_id, channel_name, pre_lower_limit, tries + 1)
                 return result
             else:  # Если в нужном временном промежутке есть посты
 
                 # Вычисление параметра скорости набора лайков
                 for meme in right_period:
                     try:
-                        meme.sm_per_hour = meme.smiles / meme.lifeTime()
+                        meme.sm_per_hour = meme.smiles / meme.life_time()
                     except ZeroDivisionError:
                         meme.sm_per_hour = meme.smiles / 0.01
 
@@ -278,24 +282,24 @@ class Api:
                 top_smiles = sorted(right_period, key=lambda s_post: s_post.sm_per_hour, reverse=True)
 
                 position = 0
-                for post in top_smiles:
-                    d = DataBase.DuplicatePost(DataBase(), channel_name, post.id)
 
                 # Если пост является повторяющимся с иным из уже отрпавленных то продолжаем выбор по top_smiles
                 if DataBase.DuplicatePost(DataBase(), channel_name, top_smiles[position].id) is True:
                     while DataBase.DuplicatePost(DataBase(), channel_name, top_smiles[position].id) is True:
                         position += 1
                         if position >= len(top_smiles):
-                            logging.warning(f"UpdatePost:get not enough posts that wasn't sended before in this period")
+                            logging.warning(f"update_post:get not enough posts that "
+                                            f"wasn't send before in this period")
                             self.lower_limit = self.lower_limit - timedelta(hours=5)
                             pre_lower_limit = self.lower_limit  #
-                            result = self.UpdatePost(channel_id, channel_name, pre_lower_limit, tries + 1)
+                            result = self.update_post(channel_id, channel_name, pre_lower_limit, tries + 1)
 
                             logging.info(f'Finished searching for updates in category: {channel_id}')
                             return result
                         try:
                             best_post = top_smiles[position]
-                        except:
+                        except Exception as e:
+                            logging.info('The error was detected in an attempt to update the post.', e)
                             best_post = None
 
                     logging.info(f'Finished searching for updates in category: {channel_id}')
