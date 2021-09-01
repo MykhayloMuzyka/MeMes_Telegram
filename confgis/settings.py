@@ -4,6 +4,7 @@ my_test_id = '-1001304448917'
 
 TOKEN = '1837010234:AAFv_KXX2Y3d5E1fnG1fPDOfN0-p1ttb7yg'  # Memes_bot
 
+admin_id = 537655110
 api_id = 5066297
 api_hash = 'adafd7c34ac0199fba4a7e81630208ff'
 

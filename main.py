@@ -1,26 +1,21 @@
-from datetime import datetime
-import time
-
+import asyncio
+import logging
 import sys
-
+import time
+from datetime import datetime
+from telethon.tl.functions.messages import (GetHistoryRequest)
+from telethon.tl.types import (PeerChannel)
+import aiogram
 import pytz
-
-from telethon.tl.types import PeerChannel, InputPeerEmpty
+from aiogram import Dispatcher, Bot
 from telethon import functions, errors
 from telethon.sync import TelegramClient
-
-from aiogram import Dispatcher, Bot
-import aiogram
-
-from MeMes_Telegram.db.localbase import DataBase, TABLES
-
-from memes import Api, ImageReader
-
-from utils import scheldue_difference
+from telethon.tl.types import PeerChannel, InputPeerEmpty
 
 from MeMes_Telegram.confgis.settings import *
-import logging
-import asyncio
+from MeMes_Telegram.db.localbase import DataBase, TABLES
+from MeMes_Telegram.memes import Api, ImageReader
+from MeMes_Telegram.utils import scheldue_difference
 
 # import argparse
 #
@@ -46,7 +41,7 @@ channels = Api.get_channels()
 id_to_link = dict()
 id_to_name = dict()
 
-for ch_id, ch_name in Api.get_channels():
+for ch_id, ch_name in channels:
     id_to_name[ch_id] = ch_name
     for name in channels_info:
         if name in ch_name:
@@ -82,6 +77,8 @@ async def send_post(channel_id, chat, post, send_time: 0):
     :return: True при успешной отправке, иначе False
     """
     post_filetype = post.url.strip()[-3:]
+    print(id_to_link[channel_id], id_to_name[channel_id], post.publish_at,
+          DataBase.DuplicatePost(key_by_value(channels_links, chat), post.id))
     if send_time != 0:
         timeout = abs(2 - float(time.time() - send_time).__round__(2))
         if float(time.time() - send_time).__round__(2) < 2:
@@ -325,17 +322,97 @@ async def clear_channel():
         await client.disconnect()
 
 
+async def getLastPublicationTime(channel_url=-1001470907718):
+    client = TelegramClient('clear', api_id, api_hash)
+    is_connected = client.is_connected()
+    if not is_connected:
+        await client.connect()
+    # auth = await client.is_user_authorized()
+    # if not auth:
+    #     await client.send_code_request(phone)
+    #     user = None
+    #     while user is None:
+    #         code = input('Enter the code you just received: ')
+    #         try:
+    #             user = await client.sign_in(phone, code)
+    #         except errors.SessionPasswordNeededError:
+    #             pw = input('Two step verification is enabled. Please enter your password: ')
+    #             user = await client.sign_in(password=pw)
+
+    # Узнать все каналы котороые есть
+    # dialogs = await client(get_dialogs)
+    offset_id = 0
+    limit = 100
+    all_messages = []
+    total_messages = 0
+    total_count_limit = 0
+    while True:
+        print("Current Offset ID is:", offset_id, "; Total Messages:", total_messages)
+        history = client(GetHistoryRequest(
+            peer=client.get_entity(PeerChannel(int(channel_url))),
+            offset_id=offset_id,
+            offset_date=None,
+            add_offset=0,
+            limit=limit,
+            max_id=0,
+            min_id=0,
+            hash=0
+        ))
+        if not history.messages:
+            break
+        messages = history.messages
+        for message in messages:
+            all_messages.append(message.to_dict())
+    return all_messages
+# @dp.message_handler(commands=['start', 'help'])
+# async def start(message):
+#     if message.from_user.id == admin_id:
+#         m = '/mailing - Рассылка сообщения по всем чатам\n' \
+#             '/fill_channels - начать заполенеие каналов по 1000 лучших постов\n'\
+#             '/clear_channels - очистить все сообщения из всех каналов\n'\
+#             '/autopost - начать монитроринг новых постов и их отправку по расписанию\n'
+#         await bot.send_message(admin_id, m)
+#
+#
+# @dp.message_handler(commands=['fill_channels'])
+# async def filling_channels(message):
+#     loop = asyncio.get_event_loop()
+#     if message.from_user.id == admin_id:
+#         loop.run_until_complete(fill_channels())
+#         await bot.send_message(admin_id, '/fill_channels is working')
+#
+#
+# @dp.message_handler(commands=['clear_channels'])
+# async def clearing_channel(message):
+#     loop = asyncio.get_event_loop()
+#     if message.from_user.id == admin_id:
+#         loop.run_until_complete(clear_channel())
+#         await bot.send_message(admin_id, '/clear_channel is working')
+#
+#
+# @dp.message_handler(commands=['autopost'])
+# async def autoposting(message):
+#     loop = asyncio.get_event_loop()
+#     if message.from_user.id == admin_id:
+#         await bot.send_message(admin_id, '/autopost is working')
+#         while True:
+#             await check_updates()
+#             time.sleep(60 * 3)
+
+
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
-    while True:
-        qes = input('Сделать отправку постов вне расписания при мониторинге?| y/n :\n').strip().lower()
-        if qes == 'n':
-            was_started = True
-            break
-        elif qes == 'y':
-            break
-        else:
-            pass
+    last_msg = loop.run_until_complete(getLastPublicationTime())
+    print(last_msg[-1])
+    # while True:
+    #     qes = input('Сделать отправку постов вне расписания при мониторинге?| y/n :\n').strip().lower()
+    #     if qes == 'n':
+    #         was_started = True
+    #         break
+    #     elif qes == 'y':
+    #         break
+    #     else:
+    #         pass
 
     while True:
         cmd = input('Вот список комманд:\n'

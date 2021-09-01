@@ -51,6 +51,8 @@ class ImageReader:
         :param post: экземарял класса Post() который нужно обработать
         """
         img = urllib.request.urlopen(post.url).read()
+        # with open("img/img.jpg", "wb") as out:
+        #     out.write(img)
         out = open("img/img.jpg", "wb")
         out.write(img)
         out.close()
@@ -131,6 +133,8 @@ class Api:
         result = list()
 
         channels = requests.get(self.channels_url, headers=self.headers)
+        # print(1)
+        # print(channels.json())
         if channels.status_code == 200:
             for item in channels.json()['data']['channels']['items']:
                 result.append([item['id'], item['name']])
@@ -164,7 +168,10 @@ class Api:
                 all_posts += filtered
 
             # Сортировка постов по лайкам от больших к меньшему
-            best_posts = sorted(all_posts, key=lambda post: post.smiles)
+            if len(all_posts) >= 300:
+                best_posts = sorted(all_posts, key=lambda post: post.smiles)[:300]
+            else:
+                best_posts = sorted(all_posts, key=lambda post: post.smiles)[:len(all_posts)]
 
             # Сортировка отставшейся тысячи по дате публикации от старых к новым
             from_old_to_new = sorted(best_posts, key=lambda post: post.publish_at)
@@ -187,7 +194,7 @@ class Api:
             for name in channels_links:
                 if name in channel_info[1]:
                     skip = False  # если отсутвует информация от текущем канале пропустить его сканирование
-                    print(skip)
+                    # print(skip)
                     break
 
             if not skip:

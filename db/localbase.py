@@ -1,15 +1,14 @@
-import time
-
-from settings import channels_links, DT_FORMAT
-from aiogram.types import base
-from typing import Optional
-import sqlite3
 import logging
+import sqlite3
+import time
 from datetime import datetime
-
-from exception.exception import FlagError
+from typing import Optional
 
 import pytz
+from aiogram.types import base
+
+from MeMes_Telegram.confgis.settings import channels_links, DT_FORMAT
+from MeMes_Telegram.exception.exception import FlagError
 
 TABLES = dict()
 
