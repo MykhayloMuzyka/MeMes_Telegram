@@ -1,4 +1,6 @@
 my_phone = '+380661774708'
+dev_phone = '+380989756983'
+
 my_id = '396247215'
 my_test_id = '-1001304448917'
 
@@ -8,7 +10,7 @@ admin_id = 537655110
 api_id = 5066297
 api_hash = 'adafd7c34ac0199fba4a7e81630208ff'
 
-phone = my_phone
+phone = dev_phone
 personal_id = my_id
 test_id = my_test_id
 
@@ -37,3 +39,5 @@ channels_info = {
 
 favorite_id = '-1001467928277'
 DT_FORMAT = '%Y-%m-%d %H:%M:%S'
+
+

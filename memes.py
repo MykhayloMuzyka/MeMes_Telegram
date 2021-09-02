@@ -1,21 +1,27 @@
-from datetime import datetime, timedelta
-
-import pytz
-
-from MeMes_Telegram.db.localbase import DataBase
-from MeMes_Telegram.confgis.settings import *
-from PIL import Image
-import urllib.request
-import numpy as np
-
-from typing import Union
-
-import requests
 import logging
-import time
-import cv2
-
 import threading
+import time
+import urllib.request
+from datetime import datetime, timedelta
+from typing import Union
+from MeMes_Telegram.db.localbase import DataBase
+import cv2
+import numpy as np
+import pytz
+import requests
+from PIL import Image
+from telethon.sync import TelegramClient
+from telethon.tl.types import PeerChannel
+
+from MeMes_Telegram.confgis.settings import *
+
+
+def channel_name(full_name):
+    name_list = full_name.split(' ')
+    if name_list[0][0] == '#':
+        return name_list[0][1:]
+    else:
+        return name_list[0]
 
 
 class Post:
@@ -167,6 +173,10 @@ class Api:
                 filtered = list(Post(item, channel_info[0]) for item in items)
                 all_posts += filtered
 
+            # all_filtered_posts = []
+            # for post in all_posts:
+            #     if lastChannelPublicationTime(channels_info[channel_name(channel_info[1])]['telegram']) < post.publish_at:
+            #         all_filtered_posts.append(post)
             # Сортировка постов по лайкам от больших к меньшему
             if len(all_posts) >= 300:
                 best_posts = sorted(all_posts, key=lambda post: post.smiles)[:300]

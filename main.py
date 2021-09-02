@@ -3,41 +3,28 @@ import logging
 import sys
 import time
 from datetime import datetime
-from telethon.tl.functions.messages import (GetHistoryRequest)
-from telethon.tl.types import (PeerChannel)
+from datetime import timedelta
 import aiogram
 import pytz
 from aiogram import Dispatcher, Bot
 from telethon import functions, errors
 from telethon.sync import TelegramClient
 from telethon.tl.types import PeerChannel, InputPeerEmpty
-
 from MeMes_Telegram.confgis.settings import *
 from MeMes_Telegram.db.localbase import DataBase, TABLES
 from MeMes_Telegram.memes import Api, ImageReader
 from MeMes_Telegram.utils import scheldue_difference
 
-# import argparse
-#
-# # Будет изменено
-# parser = argparse.ArgumentParser(description='Work with channels')
-# parser.add_argument('fill_channels', help='Заполнение каналов')
-# parser.add_argument('сlear_channels', help='Очистка каналов')
-# parser.add_argument('autopost', help='Мониторинг новых постов и отправка по расписанию')
-
 logging.basicConfig(level=logging.DEBUG, format='%(name)s - %(levelname)s - %(message)s', filename='logging.log')
 
 logging.warning('Script was Started')
-Api = Api()
-DataBase = DataBase()
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
-
+Api = Api()
+DataBase = DataBase()
 DataBase.create_tables(TABLES)
 channels = Api.get_channels()
-
-# Определение существующих каналов, запись из в БД и установка доступа к имени по ID и к Telegram_ID по API_ID
 id_to_link = dict()
 id_to_name = dict()
 
@@ -52,6 +39,9 @@ channels_info['featured']['api_id'] = 'featured'
 id_to_name['featured'] = 'featured'
 id_to_link['featured'] = favorite_id
 DataBase.WriteChannels('featured', 'featured', favorite_id)
+
+# channelsLatTimePublications = dict()
+# for channel in channelsLatTimePublications
 
 
 def key_by_value(dictionary, value):
@@ -77,8 +67,7 @@ async def send_post(channel_id, chat, post, send_time: 0):
     :return: True при успешной отправке, иначе False
     """
     post_filetype = post.url.strip()[-3:]
-    print(id_to_link[channel_id], id_to_name[channel_id], post.publish_at,
-          DataBase.DuplicatePost(key_by_value(channels_links, chat), post.id))
+    print(channel_id, id_to_link[channel_id], id_to_name[channel_id])
     if send_time != 0:
         timeout = abs(2 - float(time.time() - send_time).__round__(2))
         if float(time.time() - send_time).__round__(2) < 2:
@@ -86,7 +75,7 @@ async def send_post(channel_id, chat, post, send_time: 0):
             logging.info(f'#{post.id}: Timeout before sending =  {timeout}')
 
     to_send_time = time.time()
-
+    print(post_filetype)
     if post_filetype in ('jpg', 'png'):
         image = ImageReader(post)
         if image.watermark():
@@ -141,7 +130,9 @@ async def fill_channels():
                 best_memes[channel_id] = best_memes[channel_id][post_num + 1:]
                 break
 
+        published = False
         for post_num, post in enumerate(best_memes[channel_id]):
+            published = True
             send_time = time.time()
             try:
                 await send_post(channel_id, id_to_link[channel_id], best_memes[channel_id][post_num], send_time)
@@ -158,8 +149,9 @@ async def fill_channels():
 
             except Exception as err:
                 logging.error(f'fill_channels unknown error : {err}')
-        last_time = datetime.now().astimezone(pytz.timezone('Europe/Kiev')).strftime(DT_FORMAT)
-        DataBase.last_update('set', channel_id, last_time)
+        if published:
+            last_time = datetime.now().astimezone(pytz.timezone('Europe/Kiev')).strftime(DT_FORMAT)
+            DataBase.last_update('set', channel_id, last_time)
 
 
 was_started = False
@@ -322,48 +314,26 @@ async def clear_channel():
         await client.disconnect()
 
 
-async def getLastPublicationTime(channel_url=-1001470907718):
+async def lastChannelPublicationTime(channe_id) -> (datetime, bool):
+    """
+    Определяет дату последней публикации по id канала
+    return: дата последней публикации канала если канал найден, False в ином случае
+    """
     client = TelegramClient('clear', api_id, api_hash)
     is_connected = client.is_connected()
     if not is_connected:
         await client.connect()
-    # auth = await client.is_user_authorized()
-    # if not auth:
-    #     await client.send_code_request(phone)
-    #     user = None
-    #     while user is None:
-    #         code = input('Enter the code you just received: ')
-    #         try:
-    #             user = await client.sign_in(phone, code)
-    #         except errors.SessionPasswordNeededError:
-    #             pw = input('Two step verification is enabled. Please enter your password: ')
-    #             user = await client.sign_in(password=pw)
-
-    # Узнать все каналы котороые есть
-    # dialogs = await client(get_dialogs)
-    offset_id = 0
-    limit = 100
-    all_messages = []
-    total_messages = 0
-    total_count_limit = 0
-    while True:
-        print("Current Offset ID is:", offset_id, "; Total Messages:", total_messages)
-        history = client(GetHistoryRequest(
-            peer=client.get_entity(PeerChannel(int(channel_url))),
-            offset_id=offset_id,
-            offset_date=None,
-            add_offset=0,
-            limit=limit,
-            max_id=0,
-            min_id=0,
-            hash=0
-        ))
-        if not history.messages:
-            break
-        messages = history.messages
-        for message in messages:
-            all_messages.append(message.to_dict())
-    return all_messages
+    # собираем все диалоги ползлвателя
+    dialogs = await client.get_dialogs()
+    for d in dialogs:
+        peer_id = d.message.peer_id
+        if isinstance(peer_id, PeerChannel):
+            # проверка, являеться ли диалог каналом
+            cid = int(f"{-100}{peer_id.channel_id}")
+            if cid == channe_id:
+                # проверка, совпадает ли id даного канала с параметром функции
+                return d.message.date.astimezone(pytz.timezone('Europe/Kiev')).strftime(DT_FORMAT)
+    return False
 # @dp.message_handler(commands=['start', 'help'])
 # async def start(message):
 #     if message.from_user.id == admin_id:
@@ -402,17 +372,8 @@ async def getLastPublicationTime(channel_url=-1001470907718):
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
-    last_msg = loop.run_until_complete(getLastPublicationTime())
-    print(last_msg[-1])
-    # while True:
-    #     qes = input('Сделать отправку постов вне расписания при мониторинге?| y/n :\n').strip().lower()
-    #     if qes == 'n':
-    #         was_started = True
-    #         break
-    #     elif qes == 'y':
-    #         break
-    #     else:
-    #         pass
+    t = loop.run_until_complete(lastChannelPublicationTime(-1001351980116))
+    print(t)
 
     while True:
         cmd = input('Вот список комманд:\n'
