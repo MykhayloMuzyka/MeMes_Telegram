@@ -3,6 +3,7 @@ dev_phone = '+380989756983'
 
 my_id = '396247215'
 my_test_id = '-1001304448917'
+test_channel_id = '-1001552446651'
 
 TOKEN = '1837010234:AAFv_KXX2Y3d5E1fnG1fPDOfN0-p1ttb7yg'  # Memes_bot
 

@@ -2,26 +2,13 @@ import logging
 import threading
 import time
 import urllib.request
-from datetime import datetime, timedelta
-from typing import Union
-from MeMes_Telegram.db.localbase import DataBase
+from datetime import timedelta
 import cv2
 import numpy as np
-import pytz
 import requests
 from PIL import Image
-from telethon.sync import TelegramClient
-from telethon.tl.types import PeerChannel
-
-from MeMes_Telegram.confgis.settings import *
-
-
-def channel_name(full_name):
-    name_list = full_name.split(' ')
-    if name_list[0][0] == '#':
-        return name_list[0][1:]
-    else:
-        return name_list[0]
+from MeMes_Telegram.addition_functions import *
+from MeMes_Telegram.db.localbase import DataBase
 
 
 class Post:
@@ -49,6 +36,40 @@ class Post:
         dt_now_tz = datetime.now().astimezone(pytz.timezone('Europe/Kiev'))
         dt_now = dt_now_tz.replace(tzinfo=None)
         return int((dt_now - self.publish_at).total_seconds().__round__(0) / 3600)
+
+    # async def isNew(self):
+    #     """
+    #         Определяет дату последней публикации по id канала
+    #         return: дата последней публикации канала если канал найден, False в ином случае
+    #         """
+    #     client = TelegramClient('clear', api_id, api_hash)
+    #     is_connected = client.is_connected()
+    #     if not is_connected:
+    #         await client.connect()
+    #     auth = await client.is_user_authorized()
+    #     if not auth:
+    #         await client.send_code_request(phone)
+    #         user = None
+    #         while user is None:
+    #             code = input('Enter the code you just received: ')
+    #             try:
+    #                 user = await client.sign_in(phone, code)
+    #             except errors.SessionPasswordNeededError:
+    #                 pw = input('Two step verification is enabled. Please enter your password: ')
+    #                 user = await client.sign_in(password=pw)
+    #     # собираем все диалоги пользователя
+    #     dialogs = await client.get_dialogs()
+    #     for d in dialogs:
+    #         peer_id = d.message.peer_id
+    #         if isinstance(peer_id, PeerChannel):
+    #             # проверка, являеться ли диалог каналом
+    #             cid = int(f"{-100}{peer_id.channel_id}")
+    #             channel_id = channels_info[self.channel[1]]['telegram']
+    #             if cid == channel_id:
+    #                 # проверка, совпадает ли id даного канала с параметром функции
+    #                 if d.message.date.astimezone(pytz.timezone('Europe/Kiev')).strftime(DT_FORMAT) < self.publish_at:
+    #                     return True
+    #     return False
 
 
 class ImageReader:
@@ -172,19 +193,19 @@ class Api:
 
                 filtered = list(Post(item, channel_info[0]) for item in items)
                 all_posts += filtered
-
             # all_filtered_posts = []
             # for post in all_posts:
-            #     if lastChannelPublicationTime(channels_info[channel_name(channel_info[1])]['telegram']) < post.publish_at:
-            #         all_filtered_posts.append(post)
+                # last_time = lastChannelPublicationTime(channels_info[channel_name(channel_info[1])]['telegram'])
+                # if last_time < post.publish_at:
+                #     all_filtered_posts.append(post)
             # Сортировка постов по лайкам от больших к меньшему
-            if len(all_posts) >= 300:
-                best_posts = sorted(all_posts, key=lambda post: post.smiles)[:300]
-            else:
-                best_posts = sorted(all_posts, key=lambda post: post.smiles)[:len(all_posts)]
+            # if len(all_filtered_posts) >= 300:
+            #     best_posts = sorted(all_filtered_posts, key=lambda post: post.smiles)[:300]
+            # else:
+            # best_posts = sorted(all_posts, key=lambda post: post.smiles)
 
             # Сортировка отставшейся тысячи по дате публикации от старых к новым
-            from_old_to_new = sorted(best_posts, key=lambda post: post.publish_at)
+            from_old_to_new = sorted(all_posts, key=lambda post: post.publish_at)
             self.result[channel_info[0]] = from_old_to_new
 
     def best_posts(self) -> dict:
