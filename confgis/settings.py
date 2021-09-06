@@ -40,5 +40,3 @@ channels_info = {
 
 favorite_id = '-1001467928277'
 DT_FORMAT = '%Y-%m-%d %H:%M:%S'
-
-

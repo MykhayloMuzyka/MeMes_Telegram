@@ -129,7 +129,23 @@ class ImageReader:
         crop_img = self.pic.crop(box)
         crop_img.save('img/cropped.jpg', quality=90)
         logging.info(f'\t\tCROP time = {float(time.time() - start_time).__round__(2) * 1000} ms')
+
         return open('img/cropped.jpg', 'rb')
+
+
+def isDictFull(res: dict, num: int) -> bool:
+    """
+    Проверяет, заполнен ли словарь до конца
+    :param res: проверяеммый словарь
+    :param num: ожидаеммый размер словаря
+    :return: True если заполнен, False в ином случае
+    """
+    if len(res) < num:
+        return False
+    for key in res:
+        if not res[key]:
+            return False
+    return True
 
 
 class Api:
@@ -171,14 +187,18 @@ class Api:
     def threading_best_posts(self, posts: list, channel_info: str):
         """Берет посты посты по которым нужно пройтись и собрать информацию, channel_info текущего канала"""
         all_posts = []
+        # print(posts)
         for i in posts:
+            # print(i['data']['content'])
             content = i['data']['content']
             next_page = content['paging']['cursors']['next']
             items = content['items']
             all_posts.append(Post(items[0], channel_info[0]))
+            # print(all_posts[-1].channel, all_posts[-1].publish_at)
 
             requests_time = 0
             while content['paging']['hasNext'] is not False:
+                # print(channel_info[1])
                 url = f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1000&next={next_page}"
                 if channel_info[1] == 'featured':
                     url = f"https://api.ifunny.mobi/v4/feeds/featured?limit=1000&next={next_page}"
@@ -205,8 +225,9 @@ class Api:
             # best_posts = sorted(all_posts, key=lambda post: post.smiles)
 
             # Сортировка отставшейся тысячи по дате публикации от старых к новым
-            from_old_to_new = sorted(all_posts, key=lambda post: post.publish_at)
-            self.result[channel_info[0]] = from_old_to_new
+            # from_old_to_new = sorted(all_posts, key=lambda post: post.publish_at)
+            print(channel_info, len(all_posts))
+            self.result[channel_info[0]] = all_posts
 
     def best_posts(self) -> dict:
         """
@@ -218,17 +239,16 @@ class Api:
         channels = self.get_channels()
         channels.append(['featured', 'featured'])
         for channel_num, channel_info in enumerate(channels):
-
             skip = True
             posts = []
 
             for name in channels_links:
                 if name in channel_info[1]:
                     skip = False  # если отсутвует информация от текущем канале пропустить его сканирование
-                    # print(skip)
                     break
 
             if not skip:
+                # print(channel_info[1])
                 url = f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1"
                 if channel_info[1] == 'featured':
                     url = f'https://api.ifunny.mobi/v4/feeds/featured?limit=1'
@@ -237,8 +257,9 @@ class Api:
                 posts.append(requests.get(url, headers=self.headers).json())
                 x = threading.Thread(target=self.threading_best_posts, args=(posts, channel_info))
                 x.start()
+        while not isDictFull(self.result, len(channels_links)):
+            time.sleep(1)
 
-        time.sleep(50)
         return self.result
 
     def update_post(self, channel_id, channel_name, lower_limit, tries):
