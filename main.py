@@ -2,14 +2,20 @@ import asyncio
 import logging
 import sys
 import time
+# from MeMes_Telegram.db.localbase import DataBase, TABLES
+from datetime import datetime
+from datetime import timedelta
 
 import aiogram
+import pytz
 from aiogram import Dispatcher, Bot
+from telethon import errors
 from telethon import functions
+from telethon.sync import TelegramClient
 from telethon.tl.types import InputPeerEmpty
+from telethon.tl.types import PeerChannel, MessageMediaPhoto, MessageMediaDocument
 
-from MeMes_Telegram.addition_functions import *
-from MeMes_Telegram.db.localbase import DataBase, TABLES
+from MeMes_Telegram.confgis.settings import *
 from MeMes_Telegram.memes import Api, ImageReader, Post
 from MeMes_Telegram.utils import scheldue_difference
 
@@ -20,8 +26,8 @@ logging.warning('Script was Started')
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 Api = Api()
-DataBase = DataBase()
-DataBase.create_tables(TABLES)
+# DataBase = DataBase()
+# DataBase.create_tables(TABLES)
 channels = Api.get_channels()
 id_to_link = dict()
 id_to_name = dict()
@@ -32,11 +38,13 @@ for ch_id, ch_name in channels:
         if name in ch_name:
             id_to_link[ch_id] = channels_info[name]['telegram']
             channels_info[name]['api_id'] = ch_id
-            DataBase.WriteChannels(ch_id, ch_name, channels_info[name]['telegram'])
+            # DataBase.WriteChannels(ch_id, ch_name, channels_info[name]['telegram'])
 channels_info['featured']['api_id'] = 'featured'
 id_to_name['featured'] = 'featured'
 id_to_link['featured'] = favorite_id
-DataBase.WriteChannels('featured', 'featured', favorite_id)
+# DataBase.WriteChannels('featured', 'featured', favorite_id)
+
+links = [i for i in channels_links.values()][:len(channels_links) - 1]
 
 
 # channelsLatTimePublications = dict()
@@ -57,7 +65,7 @@ def key_by_value(dictionary, value):
     return result
 
 
-async def lastChannelsPublicationTime(client: TelegramClient, channels: list) -> dict:
+async def lastChannelsPublicationTime(client: TelegramClient) -> dict:
     """
     Определяет время последнего поста в каждом канале
     :client: авторизированный клиент
@@ -71,14 +79,24 @@ async def lastChannelsPublicationTime(client: TelegramClient, channels: list) ->
         peer_id = d.message.peer_id
         if isinstance(peer_id, PeerChannel):
             # проверка, являеться ли диалог каналом
-            cid = int(f"{-100}{peer_id.channel_id}")
-            # channel_id = channels_info[post.channel[1]]['telegram']
-            if cid in channels:
-                # проверка, совпадает ли id даного канала с параметром функции
-                try:
-                    res[str(cid)] = d.message.date.astimezone(pytz.timezone('Europe/Kiev')).strftime(DT_FORMAT)
-                except Exception as e:
-                    print(e)
+            cid = f"-100{peer_id.channel_id}"
+            if cid in links:
+                # собираем последние 100 сообщений канала
+                messages = await client.get_messages(peer_id.channel_id, limit=100)
+                for m in messages:
+                    if m.media:
+                        # проверяем, присутствует ли в сообщении медиа
+                        if isinstance(m.media, MessageMediaPhoto):
+                            # проверка, являеться ли медиа фото
+                            res[str(cid)] = (m.media.photo.date.astimezone(pytz.timezone('Europe/Kiev')) - timedelta(
+                                days=100)).astimezone(pytz.timezone('Europe/Kiev')).strftime(DT_FORMAT)
+                        if isinstance(m.media, MessageMediaDocument):
+                            # проверка, являеться ли медиа файлом
+                            res[str(cid)] = (m.media.document.date.astimezone(pytz.timezone('Europe/Kiev')) - timedelta(
+                                days=100)).astimezone(pytz.timezone('Europe/Kiev')).strftime(DT_FORMAT)
+                        break
+                    elif m == messages[-1]:
+                        res[str(cid)] = None
     return res
 
 
@@ -108,7 +126,7 @@ async def send_post(channel_id: str, chat: int, post: Post, client: TelegramClie
     :return: True при успешной отправке поста, False в ином случае
     """
     post_filetype = post.url.strip()[-3:]
-    print(post_filetype, id_to_name[channel_id])
+    # print(post_filetype, id_to_name[channel_id])
     if send_time != 0:
         timeout = abs(2 - float(time.time() - send_time).__round__(2))
         if float(time.time() - send_time).__round__(2) < 2:
@@ -169,47 +187,97 @@ async def fill_channels():
                 pw = input('Two step verification is enabled. Please enter your password: ')
                 user = client.sign_in(password=pw)
 
+    Api.result = dict()
     all_memes = Api.best_posts()
     all_new_posts = dict()
     best_new_posts = dict()
-    lastPostTimes = await lastChannelsPublicationTime(client,
-                                                      [-1001470907718, -1001294452856, -1001252485999, -1001367691516,
-                                                       -1001420568474, -1001222952410, -1001464760193, -1001351980116])
+    lastPostTimes = await lastChannelsPublicationTime(client)
+    print(lastPostTimes)
+    # print(lastPostTimes)
+    # print(lastPostTimes)
     # print(len(all_memes))
     for channel_id in all_memes:
+        print(id_to_name[channel_id])
+        all_new_posts[channel_id] = []
         # try:
         if channel_id == 'featured':
             continue
-        print(channel_id, True)
-        lastPostTime = strToDatetime(lastPostTimes[id_to_link[channel_id]])
-        all_new_posts[channel_id] = []
-        for post_num, post in enumerate(all_memes[channel_id]):
-            if post.publish_at > lastPostTime:
+        # print(channel_id, True)
+        print(lastPostTimes[id_to_link[channel_id]])
+        if lastPostTimes[id_to_link[channel_id]]:
+            lastPostTime = strToDatetime(lastPostTimes[id_to_link[channel_id]])
+            for post_num, post in enumerate(all_memes[channel_id]):
+                if post.publish_at > lastPostTime:
+                    all_new_posts[channel_id].append(post)
+        else:
+            for post_num, post in enumerate(all_memes[channel_id]):
                 all_new_posts[channel_id].append(post)
         best_new_posts[channel_id] = sorted(all_new_posts[channel_id], key=lambda post: post.smiles)
-        if len(best_new_posts[channel_id]) > 300:
-            best_new_posts[channel_id] = best_new_posts[channel_id][len(best_new_posts[channel_id]) - 300:]
+        if len(best_new_posts[channel_id]) > 100:
+            best_new_posts[channel_id] = best_new_posts[channel_id][len(best_new_posts[channel_id]) - 100:]
+        print(len(all_memes[channel_id]), len(all_new_posts[channel_id]), len(best_new_posts[channel_id]))
         # except KeyError as e:
         #     print(e)
     for channel_id in best_new_posts:
+        # print(id_to_link[channel_id])
         for post_num, post in enumerate(best_new_posts[channel_id]):
             try:
-                await send_post(channel_id, int(test_channel_id), best_new_posts[channel_id][post_num], client)
+                await send_post(channel_id, int(id_to_link[channel_id]), best_new_posts[channel_id][post_num], client)
                 logging.info(f' № {post_num}: Send post ({post.url}) and update post_id in DB')
 
             except aiogram.exceptions.RetryAfter as err:
                 logging.warning(f'№{post_num}: CATCH FLOOD CONTROL for {err.timeout} seconds')
                 time.sleep(err.timeout)
-                await send_post(channel_id, int(test_channel_id), best_new_posts[channel_id][post_num], client)
+                await send_post(channel_id, int(id_to_link[channel_id]), best_new_posts[channel_id][post_num], client)
 
             except aiogram.exceptions.BadRequest as err:
                 logging.warning(f'№{post_num}: get Bad request: {err} ({post.url})')
-                await send_post(channel_id, int(test_channel_id), best_new_posts[channel_id][post_num], client)
+                await send_post(channel_id, int(id_to_link[channel_id]), best_new_posts[channel_id][post_num], client)
 
             except Exception as err:
-                print(err)
+                # print(err)
                 logging.error(f'fill_channels unknown error : {err}')
+            time.sleep(1)
+    await client.log_out()
+    if client.is_connected():
+        await client.disconnect()
 
+
+async def mail():
+    client = TelegramClient('mail', api_id, api_hash)
+    client.flood_sleep_threshold = 0
+    is_connected = client.is_connected()
+    if not is_connected:
+        await client.connect()
+    auth = await client.is_user_authorized()
+    if not auth:
+        await client.send_code_request(phone)
+        user = None
+        while user is None:
+            entered_code = False
+            while not entered_code:
+                code = input('Enter the code you just received: ')
+                try:
+                    int(code)
+                    entered_code = True
+                except Exception:
+                    print('\nCode must be the number!\n')
+            try:
+                user = await client.sign_in(phone, code)
+            except errors.SessionPasswordNeededError:
+                pw = input('Two step verification is enabled. Please enter your password: ')
+                user = client.sign_in(password=pw)
+            except errors.rpcerrorlist.PhoneCodeInvalidError:
+                print('\nWrong code!\n')
+                time.sleep(5)
+
+    msg = input('Enter your message: ')
+    try:
+        for link in links:
+            await client.send_message(int(link), msg)
+    except errors.rpcerrorlist.ChatAdminRequiredError:
+        print('\nYou must be admin of this channel to send messages!\n')
+    await client.log_out()
     if client.is_connected():
         await client.disconnect()
 
@@ -247,48 +315,48 @@ async def check_updates():
                     was_started = True
                 else:
                     continue
-            all_channels = DataBase.ReadChannels()
-            for chName, chId in all_channels:
-                try:
-                    lower_limit = DataBase.last_update('get', chId)
-                    lower_limit = datetime.strptime(lower_limit, DT_FORMAT)
-                except TypeError:
-                    lower_limit = datetime.strptime(dt_now.replace(hour=9, minute=0, second=0).strftime(DT_FORMAT),
-                                                    DT_FORMAT)
+            # all_channels = DataBase.ReadChannels()
+            # for chName, chId in all_channels:
+            #     try:
+            #         lower_limit = DataBase.last_update('get', chId)
+            #         lower_limit = datetime.strptime(lower_limit, DT_FORMAT)
+            #     except TypeError:
+            #         lower_limit = datetime.strptime(dt_now.replace(hour=9, minute=0, second=0).strftime(DT_FORMAT),
+            #                                         DT_FORMAT)
 
-                logging.info(f'Search post since {lower_limit} for channel: {chName}')
+            # logging.info(f'Search post since {lower_limit} for channel: {chName}')
 
-                channel_table = key_by_value(channels_info, {'telegram': id_to_link[chId], 'api_id': chId})
-                new_post = (Api.update_post(chId, channel_table, lower_limit, 0),)
-                if len(new_post) > 0 and new_post[0] is not None:
-
-                    logging.info(f'Found a new post:  {new_post[0].id}, {new_post[0].publish_at}  {new_post[0].url}')
-                    send_time = time.time()
-                    for post_num in range(len(new_post)):
-                        post = new_post[post_num]
-                        try:
-                            await send_post(chId, my_test_id, post, send_time)
-                            logging.info(f'№{post_num}: Send post ({post.url}) and update post_id in DB')
-
-                        except aiogram.exceptions.RetryAfter as err:
-                            logging.warning(f'№{post_num}: CATCH FLOOD CONTROL for {err.timeout} seconds')
-                            time.sleep(err.timeout)
-                            await send_post(chId, my_test_id, post, send_time)
-
-                        except aiogram.exceptions.BadRequest as err:
-                            logging.warning(f'№{post_num}: get Bad request: {err} ({post.url})')
-                            try:
-                                await send_post(chId, my_test_id, post, send_time)
-                            except aiogram.exceptions.BadRequest:
-                                logging.warning(f'№{post_num}: get repeated Bad request: {err} to ({post.url})')
-
-                                continue
-
-                    new_time = datetime.now().astimezone(pytz.timezone('Europe/Kiev')).strftime(DT_FORMAT)
-                    DataBase.last_update('set', chId, new_time)
-                else:
-                    logging.error(
-                        f"No content to send at {datetime.now().astimezone(pytz.timezone('Europe/Kiev'))} {new_post}")
+            # channel_table = key_by_value(channels_info, {'telegram': id_to_link[chId], 'api_id': chId})
+            # new_post = (Api.update_post(chId, channel_table, lower_limit, 0),)
+            # if len(new_post) > 0 and new_post[0] is not None:
+            #
+            #     logging.info(f'Found a new post:  {new_post[0].id}, {new_post[0].publish_at}  {new_post[0].url}')
+            #     send_time = time.time()
+            #     for post_num in range(len(new_post)):
+            #         post = new_post[post_num]
+            #         try:
+            #             await send_post(chId, my_test_id, post, send_time)
+            #             logging.info(f'№{post_num}: Send post ({post.url}) and update post_id in DB')
+            #
+            #         except aiogram.exceptions.RetryAfter as err:
+            #             logging.warning(f'№{post_num}: CATCH FLOOD CONTROL for {err.timeout} seconds')
+            #             time.sleep(err.timeout)
+            #             await send_post(chId, my_test_id, post, send_time)
+            #
+            #         except aiogram.exceptions.BadRequest as err:
+            #             logging.warning(f'№{post_num}: get Bad request: {err} ({post.url})')
+            #             try:
+            #                 await send_post(chId, my_test_id, post, send_time)
+            #             except aiogram.exceptions.BadRequest:
+            #                 logging.warning(f'№{post_num}: get repeated Bad request: {err} to ({post.url})')
+            #
+            #                 continue
+            #
+            #     new_time = datetime.now().astimezone(pytz.timezone('Europe/Kiev')).strftime(DT_FORMAT)
+            #     DataBase.last_update('set', chId, new_time)
+            # else:
+            #     logging.error(
+            #         f"No content to send at {datetime.now().astimezone(pytz.timezone('Europe/Kiev'))} {new_post}")
 
 
 async def clear_channel():
@@ -296,14 +364,9 @@ async def clear_channel():
     Очистка всех имеющихся каналов от всех сообщений
     :return:
     """
-    all_chats = list(channels_links.values())
-    all_chats.append(favorite_id)
-    to_clear = list()
-
-    # Создание сессии в Telegram_API
     client = TelegramClient('clear', api_id, api_hash)
-    is_connected = client.is_connected()
-    if not is_connected:
+    client.flood_sleep_threshold = 0
+    if not client.is_connected():
         await client.connect()
     auth = await client.is_user_authorized()
     if not auth:
@@ -315,61 +378,20 @@ async def clear_channel():
                 user = await client.sign_in(phone, code)
             except errors.SessionPasswordNeededError:
                 pw = input('Two step verification is enabled. Please enter your password: ')
-                user = await client.sign_in(password=pw)
+                user = client.sign_in(password=pw)
 
-    get_dialogs = functions.messages.GetDialogsRequest(
-        offset_date=None,
-        offset_id=0,
-        offset_peer=InputPeerEmpty(),
-        limit=30,
-        hash=0
-    )
-    # Узнать все каналы котороые есть
-    dialogs = await client(get_dialogs)
-
-    chats = {}
-
-    for c in dialogs.chats:
-        chats[c.id] = c
-
-    for d in dialogs.dialogs:
-        peer = d.peer
-        if isinstance(peer, PeerChannel):
-            # Есди канал один из тех что нам нужен добавиьт в список очистки
-            peer_id = peer.channel_id
-            channel = chats[peer_id]
-            access_hash = channel.access_hash
-            dialog_name = channel.title
-            if dialog_name in channels_links.keys() or dialog_name in 'TikTok Приколы':
-                to_clear.append([peer_id, access_hash])
-
-        else:
-            continue
-
-    for chat_id, access_hash in to_clear:
-        chat = PeerChannel(int(chat_id))
-        # Отправить сообщение для отпределения последнего Message ID в канале
-        start = await client.send_message(chat, 'Abraandelabra')
-
-        to_delete = list(range(0, start.id + 1))
-        to_delete.reverse()
-        messages_count = len(to_delete)
-
-        while True:
-            try:
-                chunk = to_delete[messages_count - 100:messages_count]
-                if messages_count < 100:
-                    chunk = to_delete[0:messages_count]
-
-                await client.delete_messages(chat, chunk)
-                if to_delete[0] in chunk or messages_count < 0:
-                    break
-                messages_count = messages_count - 100
-            except Exception as err:
-                logging.error(f'Cleaning chat: {chat}, {err}')
-                break
-
-        await client.delete_messages(chat, start.id)
+    dialogs = await client.get_dialogs()
+    for d in dialogs:
+        peer_id = d.message.peer_id
+        if isinstance(peer_id, PeerChannel):
+            cid = f"-100{peer_id.channel_id}"
+            if cid in links:
+                messages = [0, 0]
+                while len(messages) > 1:
+                    messages = await client.get_messages(peer_id.channel_id, limit=400)
+                    await client.delete_messages(peer_id.channel_id, [m.id for m in messages])
+                    time.sleep(1)
+    await client.log_out()
     if client.is_connected():
         await client.disconnect()
 
@@ -387,6 +409,8 @@ if __name__ == '__main__':
         if int(cmd.strip()) == 2:
             logging.info(f'/fill_channels is working')
             loop.run_until_complete(fill_channels())
+        elif int(cmd.strip()) == 1:
+            loop.run_until_complete(mail())
         elif int(cmd.strip()) == 4:
             logging.info(f'/autopost is working')
             logging.info(f"Start Monitoring at {datetime.now().astimezone(pytz.timezone('Europe/Kiev'))}")

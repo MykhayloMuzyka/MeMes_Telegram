@@ -7,8 +7,11 @@ import cv2
 import numpy as np
 import requests
 from PIL import Image
-from MeMes_Telegram.addition_functions import *
-from MeMes_Telegram.db.localbase import DataBase
+from datetime import datetime
+from typing import Union
+import pytz
+from MeMes_Telegram.confgis.settings import *
+# from MeMes_Telegram.db.localbase import DataBase
 
 
 class Post:
@@ -308,16 +311,16 @@ class Api:
             if len(right_period) == 0:  # Если в заданный период времени найдено 0 постов
 
                 # Переопределяем нижнюю границу поиска до предпоследней отправки в канал
-                pre_lower_limit = DataBase.pre_last_update(DataBase(), channel_id)
-                try:
-                    pre_lower_limit = datetime.strptime(pre_lower_limit, DT_FORMAT)  # get previous update time
-                except Exception as e:
-                    logging.info('An error was detected in the search lower bound', e)
-                    pre_lower_limit = datetime.strptime(dt_now.replace(hour=9, minute=0, second=0).strftime(DT_FORMAT),
-                                                        DT_FORMAT)
+                # pre_lower_limit = DataBase.pre_last_update(DataBase(), channel_id)
+                # try:
+                    # pre_lower_limit = datetime.strptime(pre_lower_limit, DT_FORMAT)  # get previous update time
+                # except Exception as e:
+                #     logging.info('An error was detected in the search lower bound', e)
+                #     pre_lower_limit = datetime.strptime(dt_now.replace(hour=9, minute=0, second=0).strftime(DT_FORMAT),
+                #                                         DT_FORMAT)
 
-                if tries == 0:
-                    self.lower_limit = pre_lower_limit
+                # if tries == 0:
+                #     self.lower_limit = pre_lower_limit
                 # если на промежутке с предпоследней отпрвки также нет результатов постепенное понижение границы
                 if 1 <= tries < 10:
                     self.lower_limit = self.lower_limit - timedelta(hours=5)  # откат границы на 5 часов
@@ -346,27 +349,27 @@ class Api:
                 position = 0
 
                 # Если пост является повторяющимся с иным из уже отрпавленных то продолжаем выбор по top_smiles
-                if DataBase.DuplicatePost(DataBase(), channel_name, top_smiles[position].id) is True:
-                    while DataBase.DuplicatePost(DataBase(), channel_name, top_smiles[position].id) is True:
-                        position += 1
-                        if position >= len(top_smiles):
-                            logging.warning(f"update_post:get not enough posts that "
-                                            f"wasn't send before in this period")
-                            self.lower_limit = self.lower_limit - timedelta(hours=5)
-                            pre_lower_limit = self.lower_limit  #
-                            result = self.update_post(channel_id, channel_name, pre_lower_limit, tries + 1)
-
-                            logging.info(f'Finished searching for updates in category: {channel_id}')
-                            return result
-                        try:
-                            best_post = top_smiles[position]
-                        except Exception as e:
-                            logging.info('The error was detected in an attempt to update the post.', e)
-                            best_post = None
-
-                    logging.info(f'Finished searching for updates in category: {channel_id}')
-
-                    return best_post  # get one of the most smiled post
+                # if DataBase.DuplicatePost(DataBase(), channel_name, top_smiles[position].id) is True:
+                #     while DataBase.DuplicatePost(DataBase(), channel_name, top_smiles[position].id) is True:
+                #         position += 1
+                #         if position >= len(top_smiles):
+                #             logging.warning(f"update_post:get not enough posts that "
+                #                             f"wasn't send before in this period")
+                #             self.lower_limit = self.lower_limit - timedelta(hours=5)
+                #             pre_lower_limit = self.lower_limit  #
+                #             result = self.update_post(channel_id, channel_name, pre_lower_limit, tries + 1)
+                #
+                #             logging.info(f'Finished searching for updates in category: {channel_id}')
+                #             return result
+                #         try:
+                #             best_post = top_smiles[position]
+                #         except Exception as e:
+                #             logging.info('The error was detected in an attempt to update the post.', e)
+                #             best_post = None
+                #
+                #     logging.info(f'Finished searching for updates in category: {channel_id}')
+                #
+                #     return best_post  # get one of the most smiled post
 
                 # Если проверка на дубликат прошла успешно вернуть найденный пост
                 return top_smiles[position]
