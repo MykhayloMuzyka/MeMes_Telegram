@@ -13,6 +13,9 @@ import pytz
 from MeMes_Telegram.confgis.settings import *
 # from MeMes_Telegram.db.localbase import DataBase
 
+links = [i for i in channels_links.values()][:len(channels_links) - 1]
+utc=pytz.UTC
+
 
 class Post:
     def __init__(self, item, channel):
@@ -153,6 +156,7 @@ def isDictFull(res: dict, num: int) -> bool:
 
 class Api:
     result = dict()
+    new_posts = dict()
 
     def __init__(self):
         self.headers = {
@@ -195,8 +199,8 @@ class Api:
             # print(i['data']['content'])
             content = i['data']['content']
             next_page = content['paging']['cursors']['next']
-            items = content['items']
-            all_posts.append(Post(items[0], channel_info[0]))
+            # items = content['items']
+            # all_posts.append(Post(items[0], channel_info[0]))
             # print(all_posts[-1].channel, all_posts[-1].publish_at)
 
             requests_time = 0
@@ -262,8 +266,120 @@ class Api:
                 x.start()
         while not isDictFull(self.result, len(channels_links)):
             time.sleep(1)
-
         return self.result
+
+    def threadingNewPosts(self, posts: list, channel_id: str):
+        all_posts = []
+        # print(posts)
+        self.new_posts[channel_id] = None
+        for i in posts:
+            # print(i['data']['content'])
+            content = i['data']['content']
+            next_page = content['paging']['cursors']['next']
+            # items = content['items']
+            # all_posts.append(Post(items[0], channel_info[0]))
+            # print(all_posts[-1].channel, all_posts[-1].publish_at)
+
+            requests_time = 0
+            while content['paging']['hasNext'] is not False:
+                # print(channel_info[1])
+                url = f"https://api.ifunny.mobi/v4/channels/{channel_id}/items?limit=1000&next={next_page}"
+
+                start_request = time.time()
+                posts = requests.get(url, headers=self.headers).json()
+                requests_time += time.time() - start_request
+
+                content = posts['data']['content']
+                items = content['items']
+                next_page = content['paging']['cursors']['next']
+                for item in items:
+                    p = Post(item, channel_id)
+                    if utc.localize(p.publish_at) > self.get_last_channel_posts[channel_id]:
+                        self.new_posts[channel_id] = utc.localize(p.publish_at)
+                        self.result[channel_id].append(p)
+                # filtered = list(Post(item, channel_id) for item in items)
+                # all_posts += filtered
+
+    @property
+    def get_last_channel_posts(self):
+        res = dict()
+        for channel_id in self.result:
+            posts = self.result[channel_id]
+            posts = sorted(posts, key=lambda post: post.publish_at)
+            last_post_time = posts[-1].publish_at.astimezone(pytz.timezone('Europe/Kiev'))
+            res[channel_id] = last_post_time
+        return res
+
+    def is_new_memes(self):
+        channels = self.get_channels()
+        for channel_num, channel_info in enumerate(channels):
+            skip = True
+            posts = []
+
+            for name in channels_links:
+                if name in channel_info[1]:
+                    skip = False  # если отсутвует информация от текущем канале пропустить его сканирование
+                    break
+
+            if not skip:
+                # print(channel_info[1])
+                url = f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1"
+                # Первый запрос в апи для получения ID слудующей страницы
+                posts.append(requests.get(url, headers=self.headers).json())
+                x = threading.Thread(target=self.threadingNewPosts, args=(posts, channel_info[0]))
+                x.start()
+        while not isDictFull(self.new_posts, len(channels_links)):
+            time.sleep(1)
+        return self.new_posts
+
+        # post_url = posts[-1].url
+        # print(post_url)
+        # print(post_id)
+        # # print(posts)
+        # url = f"https://api.ifunny.mobi/v4/posts/{post_id}"
+        # # url = f"https://api.ifunny.mobi/v4/channels/{channel_id}/items?limit=1"
+        # # post = Post(requests.get(url, headers=self.headers).json()['data']['content']['items'][0], channel_id)
+        # # print(post.id)
+        # print(requests.get(url, headers=self.headers).json())
+        # print(channels)
+        # res = dict()
+        # for channel in channels:
+        #     channel_id = channel[0]
+        #     if channel_id != 'featured':
+        #         check_upd_url = f"https://api.ifunny.mobi/v4/channels/{channel_id}/items?limit=2"
+        #         last_post = requests.get(check_upd_url, headers=self.headers)
+        #         has_next = last_post.json()['data']['content']['paging']['hasNext']
+        #         next_page = last_post.json()['data']['content']['paging']['cursors']['next']
+        #         # print(last_post.json()['data']['content']['paging'])
+        #         while has_next:
+        # #             print(last_post.json(), has_next, next_page)
+        # #             # next_page = last_post.json()['data']['content']['paging']['cursors']['next']
+        # #             # print(next_page)
+        #             check_upd_url = f"https://api.ifunny.mobi/v4/channels/{channel_id}/items?limit=2&next={next_page}"
+        #             last_post = requests.get(check_upd_url, headers=self.headers)
+        #             has_next = last_post.json()['data']['content']['paging']['hasNext']
+        #             next_page = last_post.json()['data']['content']['paging']['cursors']['next']
+        #             # content = last_post.json()['data']['content']
+        #             # items = content['items']
+        #             print(last_post.json())
+        #             print(last_post.json())
+        #             has_next = last_post.json()['data']['content']['paging']['hasNext']
+        #         post = Post(last_post.json()['data']['content']['items'][0], channel_id)
+        #         res[channel_id] = post.publish_at.astimezone(pytz.timezone('Europe/Kiev')).strftime(DT_FORMAT)
+        # return res
+        # if channel_id != 'featured':
+        # check_upd_url = f"https://api.ifunny.mobi/v4/channels/{channel_id}/items?limit=1"
+        # if channel_id == 'featured':
+        #     check_upd_url = 'https://api.ifunny.mobi/v4/feeds/featured?limit=1'
+        # # if channel_id == 'featured':
+        # #     check_upd_url = f'https://api.ifunny.mobi/v4/feeds/featured?limit=1'
+        # last_post = requests.get(check_upd_url, headers=self.headers)
+        #     # print(len(last_post.json()['data']['content']['items']))
+        # is_next = last_post.json()['data']['content']['paging']['cursors']['next']
+        # post = Post(last_post.json()['data']['content']['items'][0], channel_id)
+        # print(post.channel, post.publish_at, is_next)
+            # print(last_post.json())
+
 
     def update_post(self, channel_id, channel_name, lower_limit, tries):
         """
