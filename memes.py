@@ -207,8 +207,8 @@ class Api:
             while content['paging']['hasNext'] is not False:
                 # print(channel_info[1])
                 url = f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1000&next={next_page}"
-                if channel_info[1] == 'featured':
-                    url = f"https://api.ifunny.mobi/v4/feeds/featured?limit=1000&next={next_page}"
+                # if channel_info[1] == 'featured':
+                #     url = f"https://api.ifunny.mobi/v4/feeds/featured?limit=1000&next={next_page}"
 
                 start_request = time.time()
                 posts = requests.get(url, headers=self.headers).json()
@@ -248,89 +248,145 @@ class Api:
         for channel_num, channel_info in enumerate(channels):
             skip = True
             posts = []
-
             for name in channels_links:
                 if name in channel_info[1]:
                     skip = False  # если отсутвует информация от текущем канале пропустить его сканирование
                     break
-
             if not skip:
                 # print(channel_info[1])
                 url = f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1"
-                if channel_info[1] == 'featured':
-                    url = f'https://api.ifunny.mobi/v4/feeds/featured?limit=1'
+                # if channel_info[1] == 'featured':
+                #     url = f'https://api.ifunny.mobi/v4/feeds/featured?limit=1'
 
                 # Первый запрос в апи для получения ID слудующей страницы
                 posts.append(requests.get(url, headers=self.headers).json())
                 x = threading.Thread(target=self.threading_best_posts, args=(posts, channel_info))
                 x.start()
-        while not isDictFull(self.result, len(channels_links)):
+        while not isDictFull(self.result, len(channels_links)-1):
             time.sleep(1)
         return self.result
 
-    def threadingNewPosts(self, posts: list, channel_id: str):
-        all_posts = []
-        # print(posts)
-        self.new_posts[channel_id] = None
-        for i in posts:
-            # print(i['data']['content'])
-            content = i['data']['content']
-            next_page = content['paging']['cursors']['next']
-            # items = content['items']
-            # all_posts.append(Post(items[0], channel_info[0]))
-            # print(all_posts[-1].channel, all_posts[-1].publish_at)
-
-            requests_time = 0
-            while content['paging']['hasNext'] is not False:
-                # print(channel_info[1])
-                url = f"https://api.ifunny.mobi/v4/channels/{channel_id}/items?limit=1000&next={next_page}"
-
-                start_request = time.time()
-                posts = requests.get(url, headers=self.headers).json()
-                requests_time += time.time() - start_request
-
-                content = posts['data']['content']
-                items = content['items']
-                next_page = content['paging']['cursors']['next']
-                for item in items:
-                    p = Post(item, channel_id)
-                    if utc.localize(p.publish_at) > self.get_last_channel_posts[channel_id]:
-                        self.new_posts[channel_id] = utc.localize(p.publish_at)
-                        self.result[channel_id].append(p)
+    # def threadingNewPosts(self, posts: list, channel_id: str):
+    #     # all_posts = []
+    #     # print(posts)
+    #     self.new_posts[channel_id] = None
+    #     for i in posts:
+    #         # print(i['data']['content'])
+    #         content = i['data']['content']
+    #         next_page = content['paging']['cursors']['next']
+    #         # items = content['items']
+    #         # all_posts.append(Post(items[0], channel_info[0]))
+    #         # print(all_posts[-1].channel, all_posts[-1].publish_at)
+    #
+    #         requests_time = 0
+    #         while content['paging']['hasNext'] is not False:
+    #             # print(channel_info[1])
+    #             url = f"https://api.ifunny.mobi/v4/channels/{channel_id}/items?limit=1000&next={next_page}"
+    #
+    #             start_request = time.time()
+    #             posts = requests.get(url, headers=self.headers).json()
+    #             requests_time += time.time() - start_request
+    #
+    #             content = posts['data']['content']
+    #             items = content['items']
+    #             next_page = content['paging']['cursors']['next']
+    #             for item in items:
+    #                 p = Post(item, channel_id)
+    #                 if utc.localize(p.publish_at) > self.get_last_channel_posts[channel_id]:
+    #                     self.new_posts[channel_id] = utc.localize(p.publish_at)
+    #                     self.result[channel_id].append(p)
                 # filtered = list(Post(item, channel_id) for item in items)
                 # all_posts += filtered
 
-    @property
-    def get_last_channel_posts(self):
-        res = dict()
-        for channel_id in self.result:
-            posts = self.result[channel_id]
-            posts = sorted(posts, key=lambda post: post.publish_at)
-            last_post_time = posts[-1].publish_at.astimezone(pytz.timezone('Europe/Kiev'))
-            res[channel_id] = last_post_time
-        return res
+    # @property
+    # def get_last_channel_posts(self):
+    #     res = dict()
+    #     for channel_id in self.result:
+    #         posts = self.result[channel_id]
+    #         posts = sorted(posts, key=lambda post: post.publish_at)
+    #         last_post_time = posts[-1].publish_at.astimezone(pytz.timezone('Europe/Kiev'))
+    #         res[channel_id] = last_post_time
+    #     return res
+    def threading_new_posts(self, posts: list, channel_id: str):
+        """Берет посты посты по которым нужно пройтись и собрать информацию, channel_info текущего канала"""
+        last_date, last_post = None, None
+        # all_posts = []
+        for i in posts:
+            content = i['data']['content']
+            next_page = content['paging']['cursors']['next']
+
+            # requests_time = 0
+            while content['paging']['hasNext'] is not False:
+                url = f"https://api.ifunny.mobi/v4/channels/{channel_id}/items?limit=1000&next={next_page}"
+                # if channel_id == 'featured':
+                #     url = f"https://api.ifunny.mobi/v4/feeds/featured?limit=1000&next={next_page}"
+
+                posts = requests.get(url, headers=self.headers).json()
+                content = posts['data']['content']
+                items = content['items']
+                next_page = content['paging']['cursors']['next']
+
+                for item in items:
+                    # print(item)
+                    p = Post(item, channel_id)
+                    if last_date:
+                        if last_date < p.publish_at:
+                            # if not content['paging']['hasNext']:
+                            #     print(p.publish_at)
+                            last_date = p.publish_at
+                            last_post = p
+                            # print(item)
+                    else:
+                        last_date = p.publish_at
+                        last_post = p
+            print(channel_id, last_date)
+            self.new_posts[channel_id] = last_post
 
     def is_new_memes(self):
         channels = self.get_channels()
+        # channels.append(['featured', 'featured'])
         for channel_num, channel_info in enumerate(channels):
             skip = True
             posts = []
-
             for name in channels_links:
                 if name in channel_info[1]:
                     skip = False  # если отсутвует информация от текущем канале пропустить его сканирование
                     break
-
             if not skip:
+                print(channel_info)
                 # print(channel_info[1])
                 url = f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1"
+                # if channel_info[1] == 'featured':
+                #     url = f'https://api.ifunny.mobi/v4/feeds/featured?limit=1'
+
                 # Первый запрос в апи для получения ID слудующей страницы
                 posts.append(requests.get(url, headers=self.headers).json())
-                x = threading.Thread(target=self.threadingNewPosts, args=(posts, channel_info[0]))
+                x = threading.Thread(target=self.threading_new_posts, args=(posts, channel_info[0]))
                 x.start()
-        while not isDictFull(self.new_posts, len(channels_links)):
+        while not isDictFull(self.new_posts, len(channels_links)-1):
             time.sleep(1)
         return self.new_posts
+
+    #     channels = self.get_channels()
+    #     for channel_num, channel_info in enumerate(channels):
+    #         skip = True
+    #         posts = []
+    #
+    #         for name in channels_links:
+    #             if name in channel_info[1]:
+    #                 skip = False  # если отсутвует информация от текущем канале пропустить его сканирование
+    #                 break
+    #
+    #         if not skip:
+    #             # print(channel_info[1])
+    #             url = f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1"
+    #             # Первый запрос в апи для получения ID слудующей страницы
+    #             posts.append(requests.get(url, headers=self.headers).json())
+    #             x = threading.Thread(target=self.threadingNewPosts, args=(posts, channel_info[0]))
+    #             x.start()
+    #     while not isDictFull(self.new_posts, len(channels_links)):
+    #         time.sleep(1)
+    #     return self.new_posts
 
         # post_url = posts[-1].url
         # print(post_url)
