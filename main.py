@@ -2,18 +2,16 @@ import asyncio
 import logging
 import time
 # from MeMes_Telegram.db.localbase import DataBase, TABLES
-from datetime import datetime
-
+from datetime import datetime, timedelta
+import threading
 import aiogram
 import pytz
 from aiogram import Dispatcher, Bot
 from telethon import errors
 from telethon.sync import TelegramClient
 from telethon.tl.types import PeerChannel, MessageMediaPhoto, MessageMediaDocument
-
 from MeMes_Telegram.confgis.settings import *
 from MeMes_Telegram.memes import Api, ImageReader, Post
-from MeMes_Telegram.utils import scheldue_difference
 
 logging.basicConfig(level=logging.DEBUG, format='%(name)s - %(levelname)s - %(message)s', filename='logging.log')
 
@@ -27,6 +25,7 @@ Api = Api()
 channels = Api.get_channels()
 id_to_link = dict()
 id_to_name = dict()
+was_working = False
 
 for ch_id, ch_name in channels:
     id_to_name[ch_id] = ch_name
@@ -42,10 +41,6 @@ id_to_link['featured'] = favorite_id
 
 links = [i for i in channels_links.values()][:len(channels_links) - 1]
 client = None
-
-
-# channelsLatTimePublications = dict()
-# for channel in channelsLatTimePublications
 
 
 def key_by_value(dictionary, value):
@@ -86,7 +81,7 @@ async def lastChannelsPublicationTime() -> dict:
                         # проверяем, присутствует ли в сообщении медиа
                         if isinstance(m.media, MessageMediaPhoto) or isinstance(m.media, MessageMediaDocument):
                             # проверка, являеться ли медиа фото
-                            res[str(cid)] = m.date
+                            res[str(cid)] = m.date + timedelta(hours=3)
                         break
     return res
 
@@ -161,7 +156,6 @@ async def send_post(channel_id: str, chat: int, post: Post, send_time=0):
     :return: True при успешной отправке поста, False в ином случае
     """
     post_filetype = post.url.strip()[-3:]
-    # print(post_filetype, id_to_name[channel_id])
     if send_time != 0:
         timeout = abs(2 - float(time.time() - send_time).__round__(2))
         if float(time.time() - send_time).__round__(2) < 2:
@@ -205,46 +199,52 @@ async def fill_channels():
     Функция заполнения всех имеющихся телеграм каналов тысячей лучших постов в каждом
     """
     Api.result = dict()
-    all_memes = Api.best_posts()
-    all_new_posts = dict()
-    best_new_posts = dict()
     lastPostTimes = await lastChannelsPublicationTime()
-    for channel_id in all_memes:
-        all_new_posts[channel_id] = []
-        try:
-            if channel_id == 'featured':
-                continue
-            if lastPostTimes[id_to_link[channel_id]]:
-                lastPostTime = strToDatetime(lastPostTimes[id_to_link[channel_id]])
-                for post_num, post in enumerate(all_memes[channel_id]):
-                    if post.publish_at > lastPostTime:
-                        all_new_posts[channel_id].append(post)
-            else:
-                for post_num, post in enumerate(all_memes[channel_id]):
-                    all_new_posts[channel_id].append(post)
-            best_new_posts[channel_id] = sorted(all_new_posts[channel_id], key=lambda post: post.smiles)
-            if len(best_new_posts[channel_id]) > 100:
-                best_new_posts[channel_id] = best_new_posts[channel_id][len(best_new_posts[channel_id]) - 100:]
-        except KeyError as e:
-            print(e)
-    for channel_id in best_new_posts:
-        for post_num, post in enumerate(best_new_posts[channel_id]):
+    try:
+        for cid in lastPostTimes:
+            message = await client.send_message(int(cid), 'test')
+            await client.delete_messages(int(cid), message.id)
+        all_memes = Api.all_posts()
+        all_new_posts = dict()
+        best_new_posts = dict()
+        for channel_id in all_memes:
+            all_new_posts[channel_id] = []
             try:
-                await send_post(channel_id, int(id_to_link[channel_id]), best_new_posts[channel_id][post_num])
-                logging.info(f' № {post_num}: Send post ({post.url}) and update post_id in DB')
-
-            except aiogram.exceptions.RetryAfter as err:
-                logging.warning(f'№{post_num}: CATCH FLOOD CONTROL for {err.timeout} seconds')
-                time.sleep(err.timeout)
-                await send_post(channel_id, int(id_to_link[channel_id]), best_new_posts[channel_id][post_num])
-
-            except aiogram.exceptions.BadRequest as err:
-                logging.warning(f'№{post_num}: get Bad request: {err} ({post.url})')
-                await send_post(channel_id, int(id_to_link[channel_id]), best_new_posts[channel_id][post_num])
-
-            except Exception as err:
-                logging.error(f'fill_channels unknown error : {err}')
-            time.sleep(1)
+                if channel_id == 'featured':
+                    continue
+                if lastPostTimes[id_to_link[channel_id]]:
+                    lastPostTime = lastPostTimes[id_to_link[channel_id]]
+                    for post_num, post in enumerate(all_memes[channel_id]):
+                        if utc.localize(post.publish_at) > lastPostTime:
+                            all_new_posts[channel_id].append(post)
+                else:
+                    for post_num, post in enumerate(all_memes[channel_id]):
+                        all_new_posts[channel_id].append(post)
+                best_new_posts[channel_id] = sorted(all_new_posts[channel_id], key=lambda post: post.smiles)
+                if len(best_new_posts[channel_id]) > 100:
+                    best_new_posts[channel_id] = best_new_posts[channel_id][len(best_new_posts[channel_id]) - 100:]
+            except KeyError as e:
+                print(e)
+        for channel_id in best_new_posts:
+            for post_num, post in enumerate(best_new_posts[channel_id]):
+                try:
+                    await send_post(channel_id, int(id_to_link[channel_id]), best_new_posts[channel_id][post_num])
+                    logging.info(f' № {post_num}: Send post ({post.url}) and update post_id in DB')
+                except aiogram.exceptions.RetryAfter as err:
+                    logging.warning(f'№{post_num}: CATCH FLOOD CONTROL for {err.timeout} seconds')
+                    time.sleep(err.timeout)
+                    await send_post(channel_id, int(id_to_link[channel_id]), best_new_posts[channel_id][post_num])
+                except aiogram.exceptions.BadRequest as err:
+                    logging.warning(f'№{post_num}: get Bad request: {err} ({post.url})')
+                    await send_post(channel_id, int(id_to_link[channel_id]), best_new_posts[channel_id][post_num])
+                except errors.rpcerrorlist.ChatAdminRequiredError:
+                    print('\nYou must be admin of the channel to send messages!\n')
+                    break
+                except Exception as err:
+                    logging.error(f'fill_channels unknown error : {err}')
+                time.sleep(1)
+    except errors.rpcerrorlist.ChatAdminRequiredError:
+        print('\nYou must be admin of the channel to send messages!\n')
 
 
 async def mail(msg: str):
@@ -256,101 +256,31 @@ async def mail(msg: str):
         for link in links:
             await client.send_message(int(link), msg)
     except errors.rpcerrorlist.ChatAdminRequiredError:
-        print('\nYou must be admin of this channel to send messages!\n')
+        print('\nYou must be admin of the channel to send messages!\n')
 
 
 was_started = False
-
-
-async def check_updates():
-    """
-    Проверка наличи новых постов в АПИ и отправка лучшего в каждий соответсвующий канал по расписанию
-    :return:
-    """
-    global was_started
-    dt_now = datetime.now().astimezone(pytz.timezone('Europe/Kiev'))
-    dt_now = dt_now.replace(tzinfo=None)
-    timer = dt_now.replace(hour=0, minute=3, second=0)
-    at_start_update = datetime.strptime(dt_now.strftime(DT_FORMAT), DT_FORMAT)
-
-    morning = datetime.strptime(datetime.now().replace(hour=9, minute=0, second=0).strftime(DT_FORMAT), DT_FORMAT)
-    day = datetime.strptime(datetime.now().replace(hour=12, minute=0, second=0).strftime(DT_FORMAT), DT_FORMAT)
-    evening = datetime.strptime(datetime.now().replace(hour=18, minute=0, second=0).strftime(DT_FORMAT), DT_FORMAT)
-
-    schedule = [morning, day, evening, at_start_update]
-    for posting_time in schedule:
-        # Вычислание разницы между нынешним временем и временем в расписании
-        dif_hours, dif_minutes, dif_seconds = scheldue_difference.difference(dt_now=dt_now, posting_time=posting_time)
-        difference = dt_now.replace(hour=dif_hours, minute=dif_minutes, second=dif_seconds)
-
-        logging.info(f'Difference between {posting_time} and {dt_now} = {difference}| {difference <= timer:}')
-
-        # Если разница между нужным для отправки временем и текущим меньше значения timer
-        if difference <= timer:
-            if posting_time == at_start_update:
-                if was_started is False:
-                    was_started = True
-                else:
-                    continue
-            # all_channels = DataBase.ReadChannels()
-            # for chName, chId in all_channels:
-            #     try:
-            #         lower_limit = DataBase.last_update('get', chId)
-            #         lower_limit = datetime.strptime(lower_limit, DT_FORMAT)
-            #     except TypeError:
-            #         lower_limit = datetime.strptime(dt_now.replace(hour=9, minute=0, second=0).strftime(DT_FORMAT),
-            #                                         DT_FORMAT)
-
-            # logging.info(f'Search post since {lower_limit} for channel: {chName}')
-
-            # channel_table = key_by_value(channels_info, {'telegram': id_to_link[chId], 'api_id': chId})
-            # new_post = (Api.update_post(chId, channel_table, lower_limit, 0),)
-            # if len(new_post) > 0 and new_post[0] is not None:
-            #
-            #     logging.info(f'Found a new post:  {new_post[0].id}, {new_post[0].publish_at}  {new_post[0].url}')
-            #     send_time = time.time()
-            #     for post_num in range(len(new_post)):
-            #         post = new_post[post_num]
-            #         try:
-            #             await send_post(chId, my_test_id, post, send_time)
-            #             logging.info(f'№{post_num}: Send post ({post.url}) and update post_id in DB')
-            #
-            #         except aiogram.exceptions.RetryAfter as err:
-            #             logging.warning(f'№{post_num}: CATCH FLOOD CONTROL for {err.timeout} seconds')
-            #             time.sleep(err.timeout)
-            #             await send_post(chId, my_test_id, post, send_time)
-            #
-            #         except aiogram.exceptions.BadRequest as err:
-            #             logging.warning(f'№{post_num}: get Bad request: {err} ({post.url})')
-            #             try:
-            #                 await send_post(chId, my_test_id, post, send_time)
-            #             except aiogram.exceptions.BadRequest:
-            #                 logging.warning(f'№{post_num}: get repeated Bad request: {err} to ({post.url})')
-            #
-            #                 continue
-            #
-            #     new_time = datetime.now().astimezone(pytz.timezone('Europe/Kiev')).strftime(DT_FORMAT)
-            #     DataBase.last_update('set', chId, new_time)
-            # else:
-            #     logging.error(
-            #         f"No content to send at {datetime.now().astimezone(pytz.timezone('Europe/Kiev'))} {new_post}")
 
 
 async def clear_channel():
     """
     Очистка всех имеющихся каналов от всех сообщений
     """
-    dialogs = await client.get_dialogs()
-    for d in dialogs:
-        peer_id = d.message.peer_id
-        if isinstance(peer_id, PeerChannel):
-            cid = f"-100{peer_id.channel_id}"
-            if cid in links:
-                messages = [0, 0]
-                while len(messages) > 1:
-                    messages = await client.get_messages(peer_id.channel_id, limit=400)
-                    await client.delete_messages(peer_id.channel_id, [m.id for m in messages])
-                    time.sleep(1)
+    try:
+        dialogs = await client.get_dialogs()
+        for d in dialogs:
+            peer_id = d.message.peer_id
+            if isinstance(peer_id, PeerChannel):
+                cid = f"-100{peer_id.channel_id}"
+                if cid in links:
+                    messages = [0, 0]
+                    await client.send_message(int(cid), 'test')
+                    while len(messages) > 1:
+                        messages = await client.get_messages(peer_id.channel_id, limit=400)
+                        await client.delete_messages(peer_id.channel_id, [m.id for m in messages])
+                        time.sleep(1)
+    except errors.rpcerrorlist.ChatAdminRequiredError:
+        print('\nYou must be admin of the channel to clear it!\n')
 
 
 async def is_new_posts():
@@ -358,15 +288,44 @@ async def is_new_posts():
     Вытягивает дату последней публикации с приложения по каждой категории и сверяет с датой последней публикации
     телеграм канала. Если публикация новая, то отправляеться в соответствующий канал.
     """
-    start = time.time()
-    last_api_pubs = Api.is_new_memes()
-    print('Started!')
-    last_channel_pubs = await lastChannelsPublicationTime()
-    for key in last_channel_pubs:
-        if last_channel_pubs[key] < utc.localize(last_api_pubs[key_by_value(id_to_link, key)].publish_at):
-            await send_post(key_by_value(id_to_link, key), int(key), last_api_pubs[key_by_value(id_to_link, key)])
-            time.sleep(1)
-    print(time.time() - start)
+    while was_working:
+        if was_working:
+            last_channel_pubs = await lastChannelsPublicationTime()
+            print(last_channel_pubs)
+        try:
+            if was_working:
+                for cid in last_channel_pubs:
+                    message = await client.send_message(int(cid), 'test')
+                    await client.delete_messages(int(cid), message.id)
+            Api.new_posts = dict()
+            if was_working:
+                last_api_pubs = Api.is_new_memes()
+            if was_working:
+                for key in last_channel_pubs:
+                    if last_channel_pubs[key]:
+                        if last_channel_pubs[key] < utc.localize(last_api_pubs[key_by_value(id_to_link, key)].publish_at) and was_working:
+                            print(last_channel_pubs[key], utc.localize(last_api_pubs[key_by_value(id_to_link, key)].publish_at))
+                            await send_post(key_by_value(id_to_link, key), int(key), last_api_pubs[key_by_value(id_to_link, key)])
+                            time.sleep(1)
+                    else:
+                        if was_working:
+                            await send_post(key_by_value(id_to_link, key), int(key),
+                                            last_api_pubs[key_by_value(id_to_link, key)])
+                            time.sleep(1)
+            time.sleep(15)
+        except errors.rpcerrorlist.ChatAdminRequiredError:
+            print('\nYou must be admin of the channel to send messages!\n')
+            break
+
+
+def stopWorking():
+    global was_working
+    print('/exit to stop the script')
+    cmd = ''
+    while cmd != '/exit':
+        cmd = input()
+    print('Stopping...')
+    was_working = False
 
 
 if __name__ == '__main__':
@@ -399,6 +358,7 @@ if __name__ == '__main__':
                     print('\nYou have to log in firstly!\n')
             elif int(cmd.strip()) == 4:
                 if client:
+                    print('Filling...')
                     loop.run_until_complete(fill_channels())
                 else:
                     print('\nYou have to log in firstly!\n')
@@ -407,15 +367,19 @@ if __name__ == '__main__':
 
                     conf = input('Do you really want to clear all channels? y/n\n')
                     if conf == 'y':
+                        print('Clearing...')
                         loop.run_until_complete(clear_channel())
                 else:
                     print('\nYou have to log in firstly!\n')
             elif int(cmd.strip()) == 6:
                 if client:
+                    was_working = True
+                    print('\nStart threading...')
+                    t = threading.Thread(target=stopWorking)
+                    t.start()
                     loop.run_until_complete(is_new_posts())
+                    t.join()
                 else:
                     print('\nYou have to log in firstly!\n')
         except ValueError:
             print('\nCommand must be a number!\n')
-        # elif cmd.strip() == '/exit':
-        #     sys.exit()
