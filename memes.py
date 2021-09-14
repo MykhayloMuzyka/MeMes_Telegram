@@ -13,7 +13,7 @@ import pytz
 from MeMes_Telegram.confgis.settings import *
 # from MeMes_Telegram.db.localbase import DataBase
 
-links = [i for i in channels_links.values()][:len(channels_links) - 1]
+links = [i for i in channels_links.values()]
 utc=pytz.UTC
 
 
@@ -163,6 +163,8 @@ class Api:
             requests_time = 0
             while content['paging']['hasNext'] is not False:
                 url = f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1000&next={next_page}"
+                if channel_info[0] == 'featured':
+                    url = f"https://api.ifunny.mobi/v4/feeds/featured?limit=1000&next={next_page}"
                 start_request = time.time()
                 posts = requests.get(url, headers=self.headers).json()
                 requests_time += time.time() - start_request
@@ -171,6 +173,7 @@ class Api:
                 next_page = content['paging']['cursors']['next']
                 filtered = list(Post(item, channel_info[0]) for item in items)
                 all_posts += filtered
+            print(channel_info[1], len(all_posts))
             self.result[channel_info[0]] = all_posts
 
     def all_posts(self) -> dict:
@@ -181,6 +184,7 @@ class Api:
             словарь хранящий списки всех постов по ключу ID канала
         """
         channels = self.get_channels()[::-1]
+        channels += [['featured', 'featured']]
         for channel_num, channel_info in enumerate(channels):
             skip = True
             posts = []
@@ -190,12 +194,14 @@ class Api:
                     break
             if not skip:
                 url = f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1"
+                if channel_info[0] == 'featured':
+                    url = f"https://api.ifunny.mobi/v4/feeds/featured?limit=1"
                 # Первый запрос в апи для получения ID слудующей страницы
                 posts.append(requests.get(url, headers=self.headers).json())
                 x = threading.Thread(target=self.threading_all_posts, args=(posts, channel_info))
                 x.start()
                 time.sleep(5)
-        while not isDictFull(self.result, len(channels_links)-1):
+        while not isDictFull(self.result, len(channels_links)):
             time.sleep(1)
         return self.result
 
@@ -207,6 +213,8 @@ class Api:
             next_page = content['paging']['cursors']['next']
             while content['paging']['hasNext'] is not False:
                 url = f"https://api.ifunny.mobi/v4/channels/{channel_id}/items?limit=1000&next={next_page}"
+                if channel_id == 'featured':
+                    url = f"https://api.ifunny.mobi/v4/feeds/featured?limit=1000&next={next_page}"
                 posts = requests.get(url, headers=self.headers).json()
                 content = posts['data']['content']
                 items = content['items']
@@ -230,6 +238,7 @@ class Api:
                     словарь хранящий списки всех постов по ключу ID канала
                 """
         channels = self.get_channels()[::-1]
+        channels += [['featured', 'featured']]
         for channel_num, channel_info in enumerate(channels):
             skip = True
             posts = []
@@ -239,11 +248,13 @@ class Api:
                     break
             if not skip:
                 url = f"https://api.ifunny.mobi/v4/channels/{channel_info[0]}/items?limit=1"
+                if channel_info[0] == 'featured':
+                    url = f"https://api.ifunny.mobi/v4/feeds/featured?limit=1"
                 # Первый запрос в апи для получения ID слудующей страницы
                 posts.append(requests.get(url, headers=self.headers).json())
                 x = threading.Thread(target=self.threading_new_posts, args=(posts, channel_info[0]))
                 x.start()
                 time.sleep(5)
-        while not isDictFull(self.new_posts, len(channels_links)-1):
+        while not isDictFull(self.new_posts, len(channels_links)):
             time.sleep(1)
         return self.new_posts
