@@ -14,7 +14,7 @@ from MeMes_Telegram.confgis.settings import *
 # from MeMes_Telegram.db.localbase import DataBase
 
 links = [i for i in channels_links.values()]
-utc=pytz.UTC
+utc = pytz.UTC
 
 
 class Post:
@@ -23,7 +23,6 @@ class Post:
         :param item: значение из списка items  в словаре из json файла присланного API
         :param channel: iD канала которое указано в API
         """
-
         self.id = item['id']
         self.type = item['type']  # тип поста (картинка, видео, или анимация)
         self.title: str = item['title']  # названия значения из списка items
@@ -50,8 +49,6 @@ class ImageReader:
         :param post: экземарял класса Post() который нужно обработать
         """
         img = urllib.request.urlopen(post.url).read()
-        # with open("img/img.jpg", "wb") as out:
-        #     out.write(img)
         out = open("img/img.jpg", "wb")
         out.write(img)
         out.close()
@@ -173,7 +170,7 @@ class Api:
                 next_page = content['paging']['cursors']['next']
                 filtered = list(Post(item, channel_info[0]) for item in items)
                 all_posts += filtered
-            print(channel_info[1], len(all_posts))
+            # print(channel_info[1], len(all_posts))
             self.result[channel_info[0]] = all_posts
 
     def all_posts(self) -> dict:

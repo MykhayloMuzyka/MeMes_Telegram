@@ -4,7 +4,6 @@ import threading
 import time
 # from MeMes_Telegram.db.localbase import DataBase, TABLES
 from datetime import datetime, timedelta
-
 import aiogram
 import pytz
 import telebot
@@ -12,7 +11,6 @@ from telebot import TeleBot
 from telethon import errors
 from telethon.sync import TelegramClient
 from telethon.tl.types import PeerChannel, MessageMediaPhoto, MessageMediaDocument
-
 from MeMes_Telegram.confgis.settings import *
 from MeMes_Telegram.memes import Api, ImageReader, Post
 
@@ -44,6 +42,10 @@ id_to_link['featured'] = favorite_id
 
 links = [i for i in channels_links.values()]
 client = None
+
+new_posts = dict()
+for channel_id, _ in channels:
+    new_posts[channel_id] = []
 
 
 def key_by_value(dictionary, value):
@@ -309,33 +311,81 @@ async def is_new_posts():
     """
     while was_working:
         now = datetime.now()
-        print(f'\n{now.hour}:{now.minute}')
+        # print(f'\n{now.hour}:{now.minute}:{now.second}')
         if not was_working:
             break
         if now.hour in (8, 11, 17) and now.minute == 58:
-            Api.new_posts = dict()
             if was_working:
-                last_channel_pubs = await lastChannelsPublicationTime()
-                last_api_pubs = Api.is_new_memes()
-                print(last_api_pubs)
+                Api.result = dict()
+                lastPostTimes = await lastChannelsPublicationTime()
+                try:
+                    all_memes = Api.all_posts()
+                    all_new_posts = dict()
+                    best_new_posts = dict()
+                    for channel_id in all_memes:
+                        all_new_posts[channel_id] = []
+                        try:
+                            if lastPostTimes[id_to_link[channel_id]]:
+                                lastPostTime = lastPostTimes[id_to_link[channel_id]]
+                                for post_num, post in enumerate(all_memes[channel_id]):
+                                    if utc.localize(post.publish_at) > lastPostTime:
+                                        all_new_posts[channel_id].append(post)
+                            else:
+                                for post_num, post in enumerate(all_memes[channel_id]):
+                                    all_new_posts[channel_id].append(post)
+                            best_new_posts[channel_id] = sorted(all_new_posts[channel_id], key=lambda post: post.smiles)
+                            if len(best_new_posts[channel_id]) > 50:
+                                best_new_posts[channel_id] = best_new_posts[channel_id][
+                                                             len(best_new_posts[channel_id]) - 50:]
+                        except KeyError as e:
+                            print(e)
+                    for channel_id in best_new_posts:
+                        # print(len(best_new_posts[channel_id]))
+                        best_new_posts[channel_id] = uniqueByURL(best_new_posts[channel_id])
+                        # print(len(best_new_posts[channel_id]))
+                        # for post_num, post in enumerate(best_new_posts[channel_id]):
+                        #     print(post_num, post.url)
+                        try:
+                            await send_post(channel_id, int(id_to_link[channel_id]), best_new_posts[channel_id][-1])
+                        except aiogram.exceptions.RetryAfter as err:
+                            logging.warning(f'№{post_num}: CATCH FLOOD CONTROL for {err.timeout} seconds')
+                            time.sleep(err.timeout)
+                            await send_post(channel_id, int(id_to_link[channel_id]), best_new_posts[channel_id][-1])
+                        except aiogram.exceptions.BadRequest as err:
+                            await send_post(channel_id, int(id_to_link[channel_id]), best_new_posts[channel_id][-1])
+                        except errors.rpcerrorlist.ChatAdminRequiredError:
+                            print('\nYou must be admin of the channel to send messages!\n')
+                            break
+                        except Exception as err:
+                            print(f'fill_channels unknown error : {err}')
+                        time.sleep(3)
+                except errors.rpcerrorlist.ChatAdminRequiredError:
+                    print('\nYou must be admin of the channel to send messages!\n')
             else:
                 break
-            if was_working:
-                for key in last_channel_pubs:
-                    if last_channel_pubs[key]:
-                        if last_channel_pubs[key] < utc.localize(
-                                last_api_pubs[key_by_value(id_to_link, key)].publish_at) and was_working:
-                            print(last_channel_pubs[key],
-                                  utc.localize(last_api_pubs[key_by_value(id_to_link, key)].publish_at))
-                            await send_post(key_by_value(id_to_link, key), int(key),
-                                            last_api_pubs[key_by_value(id_to_link, key)])
-                            time.sleep(1)
-                    else:
-                        await send_post(key_by_value(id_to_link, key), int(key),
-                                        last_api_pubs[key_by_value(id_to_link, key)])
-                        time.sleep(1)
-            else:
-                break
+            # Api.new_posts = dict()
+            # if was_working:
+            #     last_channel_pubs = await lastChannelsPublicationTime()
+            #     last_api_pubs = Api.is_new_memes()
+            #     print(last_api_pubs)
+            # else:
+            #     break
+            # if was_working:
+            #     for key in last_channel_pubs:
+            #         if last_channel_pubs[key]:
+            #             if last_channel_pubs[key] < utc.localize(
+            #                     last_api_pubs[key_by_value(id_to_link, key)].publish_at) and was_working:
+            #                 print(last_channel_pubs[key],
+            #                       utc.localize(last_api_pubs[key_by_value(id_to_link, key)].publish_at))
+            #                 await send_post(key_by_value(id_to_link, key), int(key),
+            #                                 last_api_pubs[key_by_value(id_to_link, key)])
+            #                 time.sleep(1)
+            #         else:
+            #             await send_post(key_by_value(id_to_link, key), int(key),
+            #                             last_api_pubs[key_by_value(id_to_link, key)])
+            #             time.sleep(1)
+            # else:
+            #     break
         time.sleep(60)
 
 
