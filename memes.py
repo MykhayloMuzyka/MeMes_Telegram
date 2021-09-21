@@ -170,7 +170,6 @@ class Api:
                 next_page = content['paging']['cursors']['next']
                 filtered = list(Post(item, channel_info[0]) for item in items)
                 all_posts += filtered
-            # print(channel_info[1], len(all_posts))
             self.result[channel_info[0]] = all_posts
 
     def all_posts(self) -> dict:

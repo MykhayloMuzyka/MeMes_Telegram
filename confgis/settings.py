@@ -1,20 +1,8 @@
-my_phone = '+380661774708'
-dev_phone = '+380989756983'
-
-my_id = '396247215'
-my_test_id = '-1001304448917'
-test_channel_id = '-1001552446651'
-
 # TOKEN = '1837010234:AAFv_KXX2Y3d5E1fnG1fPDOfN0-p1ttb7yg'  # Memes_bot
-TOKEN = '1736058357:AAF3OmRx7bLczhcsHJTJN6AHBruW1TSxzgw'
 
 admin_id = 537655110
 api_id = 5066297
 api_hash = 'adafd7c34ac0199fba4a7e81630208ff'
-
-phone = dev_phone
-personal_id = my_id
-test_id = my_test_id
 
 # real
 # channels_links = {'девушки': '-1001470907718',
