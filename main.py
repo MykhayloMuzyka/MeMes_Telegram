@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
 import asyncio
 import logging
 import sys
@@ -6,7 +8,7 @@ import time
 from datetime import datetime, timedelta
 import aiogram
 import pytz
-import telebot
+# import telebot
 from telethon import errors
 from telethon.sync import TelegramClient
 from telethon.tl.types import PeerChannel, MessageMediaPhoto, MessageMediaDocument
@@ -300,10 +302,7 @@ async def clear_channel():
                             sys.stdout.write(
                                 f'\r{counter_m + 1} of {len(links)} channels are clearing: {p}% ' + '#' * (
                                     int(p // 2)) + '_' * (int(50 - p // 2)))
-                            try:
-                                await client.delete_messages(int(cid), m.id)
-                            except telebot.apihelper.ApiException:
-                                print(f'Cant delete message {m.id}')
+                            await client.delete_messages(int(cid), m.id)
                         time.sleep(1)
                     counter_m += 1
     except errors.rpcerrorlist.ChatAdminRequiredError:
