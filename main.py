@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-from MeMes_Telegram.confgis.settings import *
-from MeMes_Telegram.memes import Api, ImageReader, Post
+from confgis.settings import *
+from memes import Api, ImageReader, Post
 import asyncio
 import logging
 import sys
