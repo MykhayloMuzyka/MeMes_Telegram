@@ -391,6 +391,7 @@ if __name__ == '__main__':
                     '\t4) Fill the channels for the 300 best posts each\n'
                     '\t5) Clear all messages from all channels\n'
                     '\t6) Turn on the autopost\n'
+                    '\t7) Quit the program\n'
                     'Enter the command: ').strip().lower()
         try:
             if int(cmd.strip()) == 1:
@@ -436,5 +437,8 @@ if __name__ == '__main__':
                     client = None
                 else:
                     print('\nYou have to log in firstly!\n')
+            elif int(cmd.strip()) == 7:
+                print('Program is quited!')
+                exit()
         except ValueError:
             print('\nCommand must be a number!\n')
