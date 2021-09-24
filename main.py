@@ -321,6 +321,7 @@ async def is_new_posts():
         now = datetime.now()
         if not was_working:
             break
+        print(f"{now.hour}:{now.minute}:{now.second}")
         if now.hour in (8, 11, 17) and now.minute == 57:
             if was_working:
                 Api.result = dict()
