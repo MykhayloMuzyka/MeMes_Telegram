@@ -240,7 +240,7 @@ async def fill_channels():
             for post_num, post in enumerate(best_new_posts[channel_id]):
                 p = round((post_num + 1) / amount * 100)
                 sys.stdout.write(
-                    f'\r{counter + 1} of {len(links)} channels are filling: {p}% ' + '#' * (int(p // 2)) + '_' * (
+                    f'\r{counter + 1} of {len(links)} channels is filling: {p}% ' + '#' * (int(p // 2)) + '_' * (
                         int(50 - p // 2)))
                 try:
                     await send_post(channel_id, int(id_to_link[channel_id]), post)
@@ -304,7 +304,7 @@ async def clear_channel():
                             except telebot.apihelper.ApiException:
                                 pass
                             sys.stdout.write(
-                                f'\r{counter_m + 1} of {len(links)} channels are clearing: {p}% ' + '#' * (
+                                f'\r{counter_m + 1} of {len(links)} channels is clearing: {p}% ' + '#' * (
                                     int(p // 2)) + '_' * (int(50 - p // 2)))
                         time.sleep(1)
                     counter_m += 1
@@ -373,7 +373,7 @@ async def is_new_posts():
 
 def stopWorking():
     global was_working
-    print('/exit to stop the script')
+    print('Enter /exit to stop the script')
     cmd = ''
     while cmd != '/exit':
         cmd = input()
@@ -384,14 +384,14 @@ def stopWorking():
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     while True:
-        cmd = input('\n\nВот список комманд:\n'
-                    '\t1) Ввойти в аккаунт Телеграм\n'
-                    '\t2) Выйти из аккаунта Телеграм\n'
-                    '\t3) Рассылка сообщения по всем чатам\n'
-                    '\t4) Начать заполнение каналов по 300 лучших постов\n'
-                    '\t5) Очистить все сообщения из всех каналов\n'
-                    '\t6) Начать монитроринг новых постов и их отправку по расписанию\n'
-                    'Введите вашу команду: ').strip().lower()
+        cmd = input('\n\nMenu:\n'
+                    '\t1) Enter the Telegram account\n'
+                    '\t2) Log out of Telegram account\n'
+                    '\t3) Sending message to all channels\n'
+                    '\t4) Fill the channels for the 300 best posts each\n'
+                    '\t5) Clear all messages from all channels\n'
+                    '\t6) Turn on the autopost\n'
+                    'Enter the command: ').strip().lower()
         try:
             if int(cmd.strip()) == 1:
                 if not client:
