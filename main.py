@@ -8,7 +8,6 @@ import time
 from datetime import datetime, timedelta
 import aiogram
 import pytz
-# import telebot
 from telethon import errors
 from telethon.sync import TelegramClient
 from telethon.tl.types import PeerChannel, MessageMediaPhoto, MessageMediaDocument
@@ -429,6 +428,8 @@ if __name__ == '__main__':
                     t.start()
                     loop.run_until_complete(is_new_posts())
                     t.join()
+                    loop.run_until_complete(logOut())
+                    client = None
                 else:
                     print('\nYou have to log in firstly!\n')
         except ValueError:
