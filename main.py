@@ -8,6 +8,8 @@ import time
 from datetime import datetime, timedelta
 import aiogram
 import pytz
+from telebot import TeleBot
+import telebot
 from telethon import errors
 from telethon.sync import TelegramClient
 from telethon.tl.types import PeerChannel, MessageMediaPhoto, MessageMediaDocument
@@ -23,6 +25,7 @@ channels = Api.get_channels()
 id_to_link = dict()
 id_to_name = dict()
 was_working = False
+bot = TeleBot(TOKEN)
 
 for ch_id, ch_name in channels:
     id_to_name[ch_id] = ch_name
@@ -161,8 +164,6 @@ async def send_post(channel_id: str, chat: int, post: Post):
     :param channel_id: ID канала из апи для текцщего поста
     :param chat: Telegram ID канала телеграмм для постов этой категории
     :param post: экземпляр класса Post() который нужно отправить в телеграм
-    :param client: авторизованный клиент
-    :param send_time: время вызова функции, по умолчанию 0
     :return: True при успешной отправке поста, False в ином случае
     """
     post_filetype = post.url.strip()[-3:]
@@ -177,27 +178,27 @@ async def send_post(channel_id: str, chat: int, post: Post):
         image = ImageReader(post)
         if image.watermark():
             try:
-                await client.send_file(chat, image.crop(), caption=caption, parse_mode='HTML')
+                bot.send_photo(chat, image.crop(), caption=caption, parse_mode='HTML')
             except Exception as e:
                 logging.info('Cant send', e)
                 return False
         else:
             logging.info(f'Post Don`t have watermark (no need to crop image) {post.url}')
             try:
-                await client.send_file(chat, post.url, caption=caption, parse_mode='HTML')
+                bot.send_photo(chat, post.url, caption=caption, parse_mode='HTML')
             except Exception as e:
                 logging.info('Cant send', e)
                 return False
 
     elif post_filetype == 'mp4':
         try:
-            await client.send_file(chat, post.url, caption=caption, parse_mode='HTML')
+            bot.send_video(chat, post.url, caption=caption, parse_mode='HTML')
         except Exception as e:
             logging.info('Cant send video', caption, e)
             return False
     elif post_filetype == 'gif':
         try:
-            await client.send_file(chat, post.url, caption=caption, parse_mode='HTML')
+            bot.send_animation(chat, post.url, caption=caption, parse_mode='HTML')
         except Exception as e:
             return False
     return True
@@ -226,8 +227,8 @@ async def fill_channels():
                     for post_num, post in enumerate(all_memes[channel_id]):
                         all_new_posts[channel_id].append(post)
                 best_new_posts[channel_id] = sorted(all_new_posts[channel_id], key=lambda post: post.smiles)
-                if len(best_new_posts[channel_id]) > 300:
-                    best_new_posts[channel_id] = best_new_posts[channel_id][len(best_new_posts[channel_id]) - 300:]
+                if len(best_new_posts[channel_id]) > 30:
+                    best_new_posts[channel_id] = best_new_posts[channel_id][len(best_new_posts[channel_id]) - 30:]
             except KeyError as e:
                 print(e)
         print('Filling channels...')
@@ -271,7 +272,7 @@ async def mail(msg: str):
         for link in links:
             sys.stdout.write(f'\rMessage is sended to {counter} of {len(links)} channels')
             counter += 1
-            await client.send_message(int(link), msg)
+            bot.send_message(int(link), msg)
     except errors.rpcerrorlist.ChatAdminRequiredError:
         print('\nYou must be admin of the channel to send messages!\n')
 
@@ -298,10 +299,13 @@ async def clear_channel():
                         amount = len(messages)
                         for i, m in enumerate(messages):
                             p = round((i + 1) / amount * 100)
+                            try:
+                                bot.delete_message(int(cid), m.id)
+                            except telebot.apihelper.ApiException:
+                                pass
                             sys.stdout.write(
                                 f'\r{counter_m + 1} of {len(links)} channels are clearing: {p}% ' + '#' * (
                                     int(p // 2)) + '_' * (int(50 - p // 2)))
-                            await client.delete_messages(int(cid), m.id)
                         time.sleep(1)
                     counter_m += 1
     except errors.rpcerrorlist.ChatAdminRequiredError:

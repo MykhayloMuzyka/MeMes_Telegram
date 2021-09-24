@@ -1,4 +1,4 @@
-# TOKEN = '1837010234:AAFv_KXX2Y3d5E1fnG1fPDOfN0-p1ttb7yg'  # Memes_bot
+TOKEN = '1736058357:AAF3OmRx7bLczhcsHJTJN6AHBruW1TSxzgw'  # Memes_bot
 
 admin_id = 537655110
 api_id = 5066297
