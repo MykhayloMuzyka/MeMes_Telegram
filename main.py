@@ -226,8 +226,8 @@ async def fill_channels():
                     for post_num, post in enumerate(all_memes[channel_id]):
                         all_new_posts[channel_id].append(post)
                 best_new_posts[channel_id] = sorted(all_new_posts[channel_id], key=lambda post: post.smiles)
-                if len(best_new_posts[channel_id]) > 10:
-                    best_new_posts[channel_id] = best_new_posts[channel_id][len(best_new_posts[channel_id]) - 10:]
+                if len(best_new_posts[channel_id]) > 300:
+                    best_new_posts[channel_id] = best_new_posts[channel_id][len(best_new_posts[channel_id]) - 300:]
             except KeyError as e:
                 print(e)
         print('Filling channels...')
