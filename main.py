@@ -373,9 +373,9 @@ async def is_new_posts():
 
 def stopWorking():
     global was_working
-    print('Enter /exit to stop the script')
+    print('Enter exit to stop the script')
     cmd = ''
-    while cmd != '/exit':
+    while cmd != 'exit':
         cmd = input()
     print('Stopping...\nThis can take up to a minute')
     was_working = False
