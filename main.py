@@ -1,5 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
+from MeMes_Telegram.confgis.settings import *
+from MeMes_Telegram.memes import Api, ImageReader, Post
 import asyncio
 import logging
 import sys
@@ -13,8 +15,6 @@ import telebot
 from telethon import errors
 from telethon.sync import TelegramClient
 from telethon.tl.types import PeerChannel, MessageMediaPhoto, MessageMediaDocument
-from MeMes_Telegram.confgis.settings import *
-from MeMes_Telegram.memes import Api, ImageReader, Post
 
 logging.basicConfig(level=logging.DEBUG, format='%(name)s - %(levelname)s - %(message)s', filename='logging.log')
 

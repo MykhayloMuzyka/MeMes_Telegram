@@ -2,7 +2,6 @@ import logging
 import threading
 import time
 import urllib.request
-from datetime import timedelta
 import cv2
 import numpy as np
 import requests
@@ -11,7 +10,6 @@ from datetime import datetime
 from typing import Union
 import pytz
 from MeMes_Telegram.confgis.settings import *
-# from MeMes_Telegram.db.localbase import DataBase
 
 links = [i for i in channels_links.values()]
 utc = pytz.UTC
