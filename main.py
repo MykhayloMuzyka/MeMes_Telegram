@@ -318,7 +318,7 @@ async def is_new_posts():
     телеграм канала. Если публикация новая, то отправляеться в соответствующий канал.
     """
     while was_working:
-        now = datetime.now()
+        now = datetime.now() + timedelta(hours=2)
         if not was_working:
             break
         print(f"{now.hour}:{now.minute}:{now.second}")
