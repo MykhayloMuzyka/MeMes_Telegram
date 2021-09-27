@@ -63,7 +63,6 @@ except EOFError:
         if channel_id != '6058bdbcf89e242f997d006d':
             posts_for_pubblishing[channel_id] = []
     posts_for_pubblishing['featured'] = []
-print(posts_for_pubblishing)
 
 
 def key_by_value(dictionary, value):
@@ -345,8 +344,8 @@ async def is_new_posts():
         now = datetime.now() + timedelta(hours=2)
         if not was_working:
             break
-        print(f"\n{now.hour}:{now.minute}:{now.second}")
-        if now.hour in (8, 11, 17, 14, 16, 18) and now.minute in (16, 21, 26, 11, 31, 36, 46, 51, 56, 41, 1, 6, 9):
+        # print(f"\n{now.hour}:{now.minute}:{now.second}")
+        if now.hour in (8, 11, 17) and now.minute == 56:
             if was_working:
                 try:
                     with open('posts.pickle', 'rb') as f:
@@ -357,7 +356,7 @@ async def is_new_posts():
                         if channel_id != '6058bdbcf89e242f997d006d':
                             posts_for_pubblishing[channel_id] = []
                     posts_for_pubblishing['featured'] = []
-                print(posts_for_pubblishing)
+                # print(posts_for_pubblishing)
                 Api.result = dict()
                 lastPostTimes = await lastChannelsPublicationTime()
                 try:
@@ -386,8 +385,8 @@ async def is_new_posts():
                         except KeyError as e:
                             print(e)
 
-                    for channel_id in posts_for_pubblishing:
-                        print(f"{id_to_name[channel_id]}: {len(posts_for_pubblishing[channel_id])}")
+                    # for channel_id in posts_for_pubblishing:
+                    #     print(f"{id_to_name[channel_id]}: {len(posts_for_pubblishing[channel_id])}")
 
                     for channel_id in posts_for_pubblishing:
                         best_new_posts[channel_id] = uniqueByURL(best_new_posts[channel_id])
