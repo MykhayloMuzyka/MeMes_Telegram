@@ -351,7 +351,7 @@ async def is_new_posts():
         if not was_working:
             break
         # print(f"\n{now.hour}:{now.minute}:{now.second}")
-        if now.hour in (8, 11, 17) and now.minute == 56:
+        if now.hour in (8, 11, 17, 12, 13, 14, 15, 16) and now.minute == 56:
             if was_working:
                 try:
                     with open('posts.pickle', 'rb') as f:
