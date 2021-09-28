@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-from confgis.settings import *
-from memes import Api, ImageReader, Post
+from MeMes_Telegram.confgis.settings import *
+from MeMes_Telegram.memes import Api, ImageReader, Post
 import asyncio
 import logging
 import sys
@@ -58,6 +58,12 @@ try:
     with open('posts.pickle', 'rb') as f:
         posts_for_pubblishing = pickle.load(f)
 except EOFError:
+    posts_for_pubblishing = dict()
+    for channel_id, _ in channels:
+        if channel_id != '6058bdbcf89e242f997d006d':
+            posts_for_pubblishing[channel_id] = []
+    posts_for_pubblishing['featured'] = []
+except FileNotFoundError:
     posts_for_pubblishing = dict()
     for channel_id, _ in channels:
         if channel_id != '6058bdbcf89e242f997d006d':

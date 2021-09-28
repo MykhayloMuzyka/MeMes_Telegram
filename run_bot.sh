@@ -2,5 +2,4 @@
 
 screen -S bot
 source wd/AT_main/venv/bin/activate
-screen -S bot cd /MeMes_Telegram
-screen -S python main.py
+screen -S bot python MeMes_Telegram/main.py

@@ -9,7 +9,7 @@ from PIL import Image
 from datetime import datetime
 from typing import Union
 import pytz
-from confgis.settings import *
+from MeMes_Telegram.confgis.settings import *
 
 links = [i for i in channels_links.values()]
 utc = pytz.UTC
