@@ -351,7 +351,7 @@ async def is_new_posts():
         if not was_working:
             break
         # print(f"\n{now.hour}:{now.minute}:{now.second}")
-        if now.hour in (8, 11, 17, 12, 13, 14, 15, 16) and now.minute in (56, 6, 16, 26, 36, 46):
+        if now.hour in (8, 11, 17) and now.minute == 56:
             if was_working:
                 try:
                     with open('MeMes_Telegram/posts.pickle', 'rb') as f:
@@ -397,7 +397,7 @@ async def is_new_posts():
                     for channel_id in posts_for_pubblishing:
                         best_new_posts[channel_id] = uniqueByURL(best_new_posts[channel_id])
                         if len(posts_for_pubblishing[channel_id]) != 0:
-                            print(f'Post is sended to channel {id_to_name[channel_id]} at {datetime.now()}')
+                            # print(f'Post is sended to channel {id_to_name[channel_id]} at {datetime.now()}')
                             try:
                                 await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][-1])
                                 del posts_for_pubblishing[channel_id][-1]
