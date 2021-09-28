@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-from MeMes_Telegram.confgis.settings import *
-from MeMes_Telegram.memes import Api, ImageReader, Post
+from confgis.settings import *
+from memes import Api, ImageReader, Post
 import asyncio
 import logging
 import sys
@@ -19,12 +19,12 @@ import pickle
 
 
 def getAction() -> str:
-    with open('MeMes_Telegram/action.txt', 'r') as f:
+    with open('action.txt', 'r') as f:
         return f.read()
 
 
 def setAction(action: str):
-    with open('MeMes_Telegram/action.txt', 'w') as f:
+    with open('action.txt', 'w') as f:
         f.write(action)
 
 
@@ -55,7 +55,7 @@ for channel_id, _ in channels:
     new_posts[channel_id] = []
 
 try:
-    with open('MeMes_Telegram/posts.pickle', 'rb') as f:
+    with open('posts.pickle', 'rb') as f:
         posts_for_pubblishing = pickle.load(f)
 except EOFError:
     posts_for_pubblishing = dict()
@@ -354,7 +354,7 @@ async def is_new_posts():
         if now.hour in (8, 11, 17) and now.minute == 56:
             if was_working:
                 try:
-                    with open('MeMes_Telegram/posts.pickle', 'rb') as f:
+                    with open('posts.pickle', 'rb') as f:
                         posts_for_pubblishing = pickle.load(f)
                 except EOFError:
                     posts_for_pubblishing = dict()
@@ -386,7 +386,7 @@ async def is_new_posts():
                                                              len(best_new_posts[channel_id]) - 50:]
                             posts_for_pubblishing[channel_id] += best_new_posts[channel_id]
                             posts_for_pubblishing[channel_id] = sorted(posts_for_pubblishing[channel_id], key=lambda post: post.smiles)
-                            with open('MeMes_Telegram/posts.pickle', 'wb') as f:
+                            with open('posts.pickle', 'wb') as f:
                                 pickle.dump(posts_for_pubblishing, f)
                         except KeyError as e:
                             print(e)
@@ -401,19 +401,19 @@ async def is_new_posts():
                             try:
                                 await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][-1])
                                 del posts_for_pubblishing[channel_id][-1]
-                                with open('MeMes_Telegram/posts.pickle', 'wb') as f:
+                                with open('posts.pickle', 'wb') as f:
                                     pickle.dump(posts_for_pubblishing, f)
                             except aiogram.exceptions.RetryAfter as err:
                                 logging.warning(f'Post: CATCH FLOOD CONTROL for {err.timeout} seconds')
                                 time.sleep(err.timeout)
                                 await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][-1])
                                 del posts_for_pubblishing[channel_id][-1]
-                                with open('MeMes_Telegram/posts.pickle', 'wb') as f:
+                                with open('posts.pickle', 'wb') as f:
                                     pickle.dump(posts_for_pubblishing, f)
                             except aiogram.exceptions.BadRequest as err:
                                 await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][-1])
                                 del posts_for_pubblishing[channel_id][-1]
-                                with open('MeMes_Telegram/posts.pickle', 'wb') as f:
+                                with open('posts.pickle', 'wb') as f:
                                     pickle.dump(posts_for_pubblishing, f)
                             except errors.rpcerrorlist.ChatAdminRequiredError:
                                 print('\nYou must be admin of the channel to send messages!\n')

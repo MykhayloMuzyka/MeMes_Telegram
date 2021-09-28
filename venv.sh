@@ -1,2 +1,2 @@
 #!/bin/bash
-source wd/AT_main/venv/bin/activate
+wd/AT_main/venv/bin/python -c MeMes_Telegram/main.py
