@@ -50,7 +50,7 @@ class ImageReader:
         out = open("MeMes_Telegram/img/img.jpg", "wb")
         out.write(img)
         out.close()
-        self.path = 'img/img.jpg'
+        self.path = 'MeMes_Telegram/img/img.jpg'
         self.pic = Image.open(self.path)
 
     def watermark(self):
@@ -68,7 +68,7 @@ class ImageReader:
         img_main = cv2.imread('MeMes_Telegram/img/corner.jpg')
         img_gray = cv2.cvtColor(img_main, cv2.COLOR_BGR2GRAY)
 
-        img_template = cv2.imread('"MeMes_Telegram/img/temp.jpg')
+        img_template = cv2.imread('MeMes_Telegram/img/temp.jpg')
         img_template = cv2.cvtColor(img_template, cv2.COLOR_BGR2GRAY)
         w, h = img_template.shape[::-1]
         res = cv2.matchTemplate(img_gray, img_template, cv2.TM_CCOEFF_NORMED)
