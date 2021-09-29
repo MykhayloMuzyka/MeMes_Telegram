@@ -297,7 +297,7 @@ async def mail(msg: str):
     try:
         print('\n')
         for link in links:
-            sys.stdout.write('\rMessage is sended to ' + str(counter) + ' of ' + str(len(links) + ' channels')
+            sys.stdout.write('\rMessage is sended to ' + str(counter) + ' of ' + str(len(links)) + ' channels')
             counter += 1
             bot.send_message(int(link), msg)
     except errors.rpcerrorlist.ChatAdminRequiredError:
