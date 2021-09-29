@@ -197,9 +197,9 @@ async def send_post(channel_id: str, chat: int, post: Post):
     """
     post_filetype = post.url.strip()[-3:]
     if post.title:
-        caption = f"<b>{post.title}</b>\n\n<a href='{main_channnel_inv_link}'>Улётные приколы😂</a>"
+        caption = "<b>" + str(post.title) + "</b>\n\n<a href='" + main_channnel_inv_link + "'>Улётные приколы😂</a>"
     else:
-        caption = f"<a href='{main_channnel_inv_link}'>Улётные приколы😂</a>"
+        caption = "<a href='" + main_channnel_inv_link + "'>Улётные приколы😂</a>"
     if post_filetype in ('jpg', 'png'):
         image = ImageReader(post)
         if image.watermark():
