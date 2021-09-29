@@ -409,7 +409,7 @@ async def is_new_posts():
                                 with open('MeMes_Telegram/posts.pickle', 'wb') as f:
                                     pickle.dump(posts_for_pubblishing, f)
                             except aiogram.exceptions.RetryAfter as err:
-                                logging.warning(f'Post: CATCH FLOOD CONTROL for {err.timeout} seconds')
+                                logging.warning('Post: CATCH FLOOD CONTROL for ' + str(err.timeout) + ' seconds')
                                 time.sleep(err.timeout)
                                 await send_post(channel_id, int(id_to_link[channel_id]),
                                                 posts_for_pubblishing[channel_id][-1])
@@ -426,7 +426,7 @@ async def is_new_posts():
                                 print('\nYou must be admin of the channel to send messages!\n')
                                 break
                             except Exception as err:
-                                print(f'fill_channels unknown error : {err}')
+                                print('fill_channels unknown error: '+ err)
                             time.sleep(3)
                 except errors.rpcerrorlist.ChatAdminRequiredError:
                     print('\nYou must be admin of the channel to send messages!\n')
