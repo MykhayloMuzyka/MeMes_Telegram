@@ -100,7 +100,7 @@ async def lastChannelsPublicationTime() -> dict:
         peer_id = d.message.peer_id
         if isinstance(peer_id, PeerChannel):
             # проверка, являеться ли диалог каналом
-            cid = f"-100{peer_id.channel_id}"
+            cid = "-100" + str(peer_id.channel_id)
             if cid in links:
                 # собираем последние 100 сообщений канала
                 messages = await client.get_messages(peer_id.channel_id, limit=100)
