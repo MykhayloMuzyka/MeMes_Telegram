@@ -1,21 +1,22 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-from confgis.settings import *
-from memes import Api, ImageReader, Post
 import asyncio
 import logging
+import pickle
 import sys
 import threading
 import time
 from datetime import datetime, timedelta
+
 import aiogram
 import pytz
-from telebot import TeleBot
 import telebot
+from confgis.settings import *
+from memes import Api, ImageReader, Post
+from telebot import TeleBot
 from telethon import errors
 from telethon.sync import TelegramClient
 from telethon.tl.types import PeerChannel, MessageMediaPhoto, MessageMediaDocument
-import pickle
 
 
 def getAction() -> str:
@@ -136,7 +137,7 @@ async def logIn() -> TelegramClient:
     Функция входа в телеграм аккаунт
     :return: обьект авторизированого клиента
     """
-    client = TelegramClient('admin', api_id, api_hash)
+    client = TelegramClient('MeMes_Telegram/admin', api_id, api_hash)
     client.flood_sleep_threshold = 0
     is_connected = client.is_connected()
     if not is_connected:
@@ -208,7 +209,7 @@ async def send_post(channel_id: str, chat: int, post: Post):
                 logging.info('Cant send', e)
                 return False
         else:
-            logging.info(f'Post Don`t have watermark (no need to crop image) {post.url}')
+            logging.info('Post Don`t have watermark (no need to crop image) ' + post.url)
             try:
                 bot.send_photo(chat, post.url, caption=caption, parse_mode='HTML')
             except Exception as e:
@@ -265,12 +266,13 @@ async def fill_channels():
             for post_num, post in enumerate(best_new_posts[channel_id]):
                 p = round((post_num + 1) / amount * 100)
                 sys.stdout.write(
-                    f'\r{counter + 1} of {len(links)} channels is filling: {p}% ' + '#' * (int(p // 2)) + '_' * (
+                    '\r' + str(counter + 1) + ' of ' + str(len(links)) + ' channels is filling: ' + str(
+                        p) + '% ' + '#' * (int(p // 2)) + '_' * (
                         int(50 - p // 2)))
                 try:
                     await send_post(channel_id, int(id_to_link[channel_id]), post)
                 except aiogram.exceptions.RetryAfter as err:
-                    logging.warning(f'№{post_num}: CATCH FLOOD CONTROL for {err.timeout} seconds')
+                    logging.warning('№' + str(post_num) + ': CATCH FLOOD CONTROL for ' + str(err.timeout) + ' seconds')
                     time.sleep(err.timeout)
                     await send_post(channel_id, int(id_to_link[channel_id]), post)
                 except aiogram.exceptions.BadRequest as err:
@@ -279,7 +281,7 @@ async def fill_channels():
                     print('\nYou must be admin of the channel to send messages!\n')
                     break
                 except Exception as err:
-                    print(f'fill_channels unknown error : {err}')
+                    print('fill_channels unknown error: ' + str(err))
                 time.sleep(3)
             counter += 1
     except errors.rpcerrorlist.ChatAdminRequiredError:
@@ -316,7 +318,7 @@ async def clear_channel():
         for d in dialogs:
             peer_id = d.message.peer_id
             if isinstance(peer_id, PeerChannel):
-                cid = f"-100{peer_id.channel_id}"
+                cid = '-100' + str(peer_id.channel_id)
                 if cid in links:
                     messages = [0, 0]
                     while len(messages) > 1:
@@ -332,7 +334,8 @@ async def clear_channel():
                                 print(e)
                                 # pass
                             sys.stdout.write(
-                                f'\r{counter_m + 1} of {len(links)} channels is clearing: {p}% ' + '#' * (
+                                '\r' + str(counter_m + 1) + ' of ' + str(len(links)) + ' channels is clearing: ' + str(
+                                    p) + '% ' + '#' * (
                                     int(p // 2)) + '_' * (int(50 - p // 2)))
                         time.sleep(1)
                     counter_m += 1
@@ -385,7 +388,8 @@ async def is_new_posts():
                                 best_new_posts[channel_id] = best_new_posts[channel_id][
                                                              len(best_new_posts[channel_id]) - 50:]
                             posts_for_pubblishing[channel_id] += best_new_posts[channel_id]
-                            posts_for_pubblishing[channel_id] = sorted(posts_for_pubblishing[channel_id], key=lambda post: post.smiles)
+                            posts_for_pubblishing[channel_id] = sorted(posts_for_pubblishing[channel_id],
+                                                                       key=lambda post: post.smiles)
                             with open('MeMes_Telegram/posts.pickle', 'wb') as f:
                                 pickle.dump(posts_for_pubblishing, f)
                         except KeyError as e:
@@ -399,19 +403,22 @@ async def is_new_posts():
                         if len(posts_for_pubblishing[channel_id]) != 0:
                             # print(f'Post is sended to channel {id_to_name[channel_id]} at {datetime.now()}')
                             try:
-                                await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][-1])
+                                await send_post(channel_id, int(id_to_link[channel_id]),
+                                                posts_for_pubblishing[channel_id][-1])
                                 del posts_for_pubblishing[channel_id][-1]
                                 with open('MeMes_Telegram/posts.pickle', 'wb') as f:
                                     pickle.dump(posts_for_pubblishing, f)
                             except aiogram.exceptions.RetryAfter as err:
                                 logging.warning(f'Post: CATCH FLOOD CONTROL for {err.timeout} seconds')
                                 time.sleep(err.timeout)
-                                await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][-1])
+                                await send_post(channel_id, int(id_to_link[channel_id]),
+                                                posts_for_pubblishing[channel_id][-1])
                                 del posts_for_pubblishing[channel_id][-1]
                                 with open('MeMes_Telegram/posts.pickle', 'wb') as f:
                                     pickle.dump(posts_for_pubblishing, f)
                             except aiogram.exceptions.BadRequest as err:
-                                await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][-1])
+                                await send_post(channel_id, int(id_to_link[channel_id]),
+                                                posts_for_pubblishing[channel_id][-1])
                                 del posts_for_pubblishing[channel_id][-1]
                                 with open('MeMes_Telegram/posts.pickle', 'wb') as f:
                                     pickle.dump(posts_for_pubblishing, f)
@@ -475,58 +482,58 @@ if __name__ == '__main__':
                             'Enter the command: ').strip().lower()
                 # try:
                 if int(cmd.strip()) == 1:
-                        if not client:
-                            client = loop.run_until_complete(logIn())
-                        else:
-                            print('\nYou have already logged in!\n')
+                    if not client:
+                        client = loop.run_until_complete(logIn())
+                    else:
+                        print('\nYou have already logged in!\n')
                 elif int(cmd.strip()) == 2:
-                        if client:
-                            loop.run_until_complete(logOut())
-                            client = None
-                        else:
-                            print('\nYou have to log in firstly!\n')
+                    if client:
+                        loop.run_until_complete(logOut())
+                        client = None
+                    else:
+                        print('\nYou have to log in firstly!\n')
                 elif int(cmd.strip()) == 3:
-                        if client:
-                            msg = input('Enter your message: ')
-                            loop.run_until_complete(mail(msg))
-                        else:
-                            print('\nYou have to log in firstly!\n')
+                    if client:
+                        msg = input('Enter your message: ')
+                        loop.run_until_complete(mail(msg))
+                    else:
+                        print('\nYou have to log in firstly!\n')
                 elif int(cmd.strip()) == 4:
-                        if client:
-                            setAction('filling')
-                            loop.run_until_complete(fill_channels())
-                            setAction('menu')
-                        else:
-                            print('\nYou have to log in firstly!\n')
-                elif int(cmd.strip()) == 5:
-                        if client:
-                            conf = input('Do you really want to clear all channels? y/n\n')
-                            if conf == 'y':
-                                setAction('clear')
-                                print('Clearing...')
-                                loop.run_until_complete(clear_channel())
-                                setAction('menu')
-                                with open('MeMes_Telegram/posts.pickle', 'wb') as f:
-                                    f.write(b'')
-                        else:
-                            print('\nYou have to log in firstly!\n')
-                elif int(cmd.strip()) == 6:
-                        if client:
-                            setAction('autopost')
-                            was_working = True
-                            print('\nStart threading...')
-                            t = threading.Thread(target=stopWorking)
-                            t.start()
-                            loop.run_until_complete(is_new_posts())
-                            t.join()
-                            loop.run_until_complete(logOut())
-                            client = None
-                            setAction('menu')
-                        else:
-                            print('\nYou have to log in firstly!\n')
-                elif int(cmd.strip()) == 7:
-                        print('Program is quited!')
+                    if client:
+                        setAction('filling')
+                        loop.run_until_complete(fill_channels())
                         setAction('menu')
-                        exit()
+                    else:
+                        print('\nYou have to log in firstly!\n')
+                elif int(cmd.strip()) == 5:
+                    if client:
+                        conf = input('Do you really want to clear all channels? y/n\n')
+                        if conf == 'y':
+                            setAction('clear')
+                            print('Clearing...')
+                            loop.run_until_complete(clear_channel())
+                            setAction('menu')
+                            with open('MeMes_Telegram/posts.pickle', 'wb') as f:
+                                f.write(b'')
+                    else:
+                        print('\nYou have to log in firstly!\n')
+                elif int(cmd.strip()) == 6:
+                    if client:
+                        setAction('autopost')
+                        was_working = True
+                        print('\nStart threading...')
+                        t = threading.Thread(target=stopWorking)
+                        t.start()
+                        loop.run_until_complete(is_new_posts())
+                        t.join()
+                        loop.run_until_complete(logOut())
+                        client = None
+                        setAction('menu')
+                    else:
+                        print('\nYou have to log in firstly!\n')
+                elif int(cmd.strip()) == 7:
+                    print('Program is quited!')
+                    setAction('menu')
+                    exit()
         # except ValueError as e:
         #     print(e)
