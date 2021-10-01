@@ -21,12 +21,12 @@ from memes import Api, ImageReader, Post
 
 
 def getAction() -> str:
-    with open('action.txt', 'r') as f:
+    with open('MeMes_Telegram/action.txt', 'r') as f:
         return f.read()
 
 
 def setAction(action: str):
-    with open('action.txt', 'w') as f:
+    with open('MeMes_Telegram/action.txt', 'w') as f:
         f.write(action)
 
 
