@@ -16,8 +16,8 @@ from telethon import errors
 from telethon.sync import TelegramClient
 from telethon.tl.types import PeerChannel, MessageMediaPhoto, MessageMediaDocument
 
-from MeMes_Telegram.confgis.settings import *
-from MeMes_Telegram.memes import Api, ImageReader, Post
+from confgis.settings import *
+from memes import Api, ImageReader, Post
 
 
 def getAction() -> str:
