@@ -9,7 +9,7 @@ from PIL import Image
 from datetime import datetime
 from typing import Union
 import pytz
-from confgis.settings import *
+from MeMes_Telegram.confgis.settings import *
 
 links = [i for i in channels_links.values()]
 utc = pytz.UTC
@@ -47,10 +47,10 @@ class ImageReader:
         :param post: экземарял класса Post() который нужно обработать
         """
         img = urllib.request.urlopen(post.url).read()
-        out = open("MeMes_Telegram/img/img.jpg", "wb")
+        out = open("img/img.jpg", "wb")
         out.write(img)
         out.close()
-        self.path = 'MeMes_Telegram/img/img.jpg'
+        self.path = 'img/img.jpg'
         self.pic = Image.open(self.path)
 
     def watermark(self):
@@ -60,15 +60,15 @@ class ImageReader:
         """
         start_time = time.time()
         img_main = Image.open(self.path)
-        img_template = Image.open('MeMes_Telegram/img/temp.jpg')  # шаблон вотермарки статически хранящийся в проекте
+        img_template = Image.open('img/temp.jpg')  # шаблон вотермарки статически хранящийся в проекте
         t_width, t_height = img_template.size
         width, height = img_main.size
         box = (width - t_width - 50, height - t_height - 50, width, height)
-        img_main.crop(box).save('MeMes_Telegram/img/corner.jpg')  # обрезка исходного изображения для увеличения скорости поиска
-        img_main = cv2.imread('MeMes_Telegram/img/corner.jpg')
+        img_main.crop(box).save('img/corner.jpg')  # обрезка исходного изображения для увеличения скорости поиска
+        img_main = cv2.imread('img/corner.jpg')
         img_gray = cv2.cvtColor(img_main, cv2.COLOR_BGR2GRAY)
 
-        img_template = cv2.imread('MeMes_Telegram/img/temp.jpg')
+        img_template = cv2.imread('img/temp.jpg')
         img_template = cv2.cvtColor(img_template, cv2.COLOR_BGR2GRAY)
         w, h = img_template.shape[::-1]
         res = cv2.matchTemplate(img_gray, img_template, cv2.TM_CCOEFF_NORMED)
@@ -94,10 +94,10 @@ class ImageReader:
         width, height = self.pic.size
         box = (0, 0, width, height - 20)
         crop_img = self.pic.crop(box)
-        crop_img.save('MeMes_Telegram/img/cropped.jpg', quality=90)
+        crop_img.save('img/cropped.jpg', quality=90)
         logging.info(f'\t\tCROP time = {float(time.time() - start_time).__round__(2) * 1000} ms')
 
-        return open('MeMes_Telegram/img/cropped.jpg', 'rb')
+        return open('img/cropped.jpg', 'rb')
 
 
 def isDictFull(res: dict, num: int) -> bool:

@@ -11,21 +11,22 @@ from datetime import datetime, timedelta
 import aiogram
 import pytz
 import telebot
-from confgis.settings import *
-from memes import Api, ImageReader, Post
 from telebot import TeleBot
 from telethon import errors
 from telethon.sync import TelegramClient
 from telethon.tl.types import PeerChannel, MessageMediaPhoto, MessageMediaDocument
 
+from MeMes_Telegram.confgis.settings import *
+from MeMes_Telegram.memes import Api, ImageReader, Post
+
 
 def getAction() -> str:
-    with open('MeMes_Telegram/action.txt', 'r') as f:
+    with open('action.txt', 'r') as f:
         return f.read()
 
 
 def setAction(action: str):
-    with open('MeMes_Telegram/action.txt', 'w') as f:
+    with open('action.txt', 'w') as f:
         f.write(action)
 
 
@@ -35,6 +36,10 @@ logging.warning('Script was Started')
 utc = pytz.UTC
 Api = Api()
 channels = Api.get_channels()
+
+global post_nums
+post_nums = 0
+
 id_to_link = dict()
 id_to_name = dict()
 was_working = False
@@ -55,8 +60,10 @@ new_posts = dict()
 for channel_id, _ in channels:
     new_posts[channel_id] = []
 
+
+
 try:
-    with open('MeMes_Telegram/posts.pickle', 'rb') as f:
+    with open('posts.pickle', 'rb') as f:
         posts_for_pubblishing = pickle.load(f)
 except EOFError:
     posts_for_pubblishing = dict()
@@ -70,6 +77,12 @@ except FileNotFoundError:
         if channel_id != '6058bdbcf89e242f997d006d':
             posts_for_pubblishing[channel_id] = []
     posts_for_pubblishing['featured'] = []
+
+# for channel_id in posts_for_pubblishing:
+#     print(id_to_name[channel_id])
+#     posts_for_pubblishing[channel_id] = sorted(posts_for_pubblishing[channel_id], key=lambda post: post.smiles)[::-1]
+#     for p in posts_for_pubblishing[channel_id]:
+#         print(p.url, p.publish_at, p.smiles)
 
 
 def key_by_value(dictionary, value):
@@ -137,7 +150,7 @@ async def logIn() -> TelegramClient:
     Функция входа в телеграм аккаунт
     :return: обьект авторизированого клиента
     """
-    client = TelegramClient('MeMes_Telegram/admin', api_id, api_hash)
+    client = TelegramClient('admin', api_id, api_hash)
     client.flood_sleep_threshold = 0
     is_connected = client.is_connected()
     if not is_connected:
@@ -195,11 +208,20 @@ async def send_post(channel_id: str, chat: int, post: Post):
     :param post: экземпляр класса Post() который нужно отправить в телеграм
     :return: True при успешной отправке поста, False в ином случае
     """
+    global post_nums
     post_filetype = post.url.strip()[-3:]
-    if post.title:
-        caption = "<b>" + str(post.title) + "</b>\n\n<a href='" + main_channnel_inv_link + "'>Улётные приколы😂</a>"
-    else:
+    if post_nums % 2 == 1:
+        # if post.title:
+        #     caption = "<b>" + str(post.title) + "</b>\n\n<a href='" + main_channnel_inv_link + "'>Улётные приколы😂</a>"
+        # else:
         caption = "<a href='" + main_channnel_inv_link + "'>Улётные приколы😂</a>"
+    else:
+        # if post.title:
+        #     caption = "<b>" + str(post.title) + "</b>\n\n<a href='" + main_channnel_inv_link + "'>Подборка лучших приколов по категориям: Мемы Видео Девушки Животные Позалипать Жизненно Отношения</a>"
+        # else:
+        caption = "<a href='" + 'https://t.me/idaprikol_memes' + "'>Подборка лучших приколов по категориям: Мемы Видео Девушки Животные Позалипать Жизненно Отношения</a>"
+    post_nums += 1
+
     if post_filetype in ('jpg', 'png'):
         image = ImageReader(post)
         if image.watermark():
@@ -239,6 +261,32 @@ async def fill_channels():
     lastPostTimes = await lastChannelsPublicationTime()
     try:
         all_memes = Api.all_posts()
+        # all = 0
+        # for channel_id in all_memes:
+        #     s = []
+        #     for p in all_memes[channel_id]:
+        #         # if (p.publish_at.year == 2021 and p.publish_at.day == 29 and p.publish_at.month == 9 and p.publish_at.hour > 18) and \
+        #         # (p.publish_at.year == 2021 and p.publish_at.day == 30 and p.publish_at.month == 9 and p.publish_at.hour < 9):
+        #         if p.publish_at.year == 2021 and p.publish_at.day == 30 and p.publish_at.month == 9:
+        #             posts_for_pubblishing[channel_id].append(p)
+        #     print(f'{id_to_name[channel_id]} - {len(posts_for_pubblishing[channel_id])}')
+        #     all += len(s)
+        # print(f"Всего: {all}")
+        # with open('posts.pickle', 'wb') as f:
+        #     pickle.dump(posts_for_pubblishing, f)
+
+        # s = sorted(s, key=lambda post: post.smiles)
+        # a = []
+        # for po in s:
+        #     if po.url[len(po.url)-3:] == 'mp4':
+        #         a.append(po)
+        # if len(a) > 50:
+        #     for i in range(1, 51):
+        #         print(a[-i].url, a[-i].publish_at, a[-i].smiles)
+        # else:
+        #     for i in range(1, len(a)):
+        #         print(a[-i].url, a[-i].publish_at, a[-i].smiles)
+        # exit(0)
         all_new_posts = dict()
         best_new_posts = dict()
         for channel_id in all_memes:
@@ -357,7 +405,7 @@ async def is_new_posts():
         if now.hour in (8, 11, 17) and now.minute == 56:
             if was_working:
                 try:
-                    with open('MeMes_Telegram/posts.pickle', 'rb') as f:
+                    with open('posts.pickle', 'rb') as f:
                         posts_for_pubblishing = pickle.load(f)
                 except EOFError:
                     posts_for_pubblishing = dict()
@@ -387,10 +435,12 @@ async def is_new_posts():
                             if len(best_new_posts[channel_id]) > 50:
                                 best_new_posts[channel_id] = best_new_posts[channel_id][
                                                              len(best_new_posts[channel_id]) - 50:]
-                            posts_for_pubblishing[channel_id] += best_new_posts[channel_id]
+                            # posts_for_pubblishing[channel_id] += best_new_posts[channel_id]
                             posts_for_pubblishing[channel_id] = sorted(posts_for_pubblishing[channel_id],
                                                                        key=lambda post: post.smiles)
-                            with open('MeMes_Telegram/posts.pickle', 'wb') as f:
+                            best_new_posts[channel_id] = sorted(best_new_posts[channel_id],
+                                                                key=lambda post: post.smiles)
+                            with open('posts.pickle', 'wb') as f:
                                 pickle.dump(posts_for_pubblishing, f)
                         except KeyError as e:
                             print(e)
@@ -400,34 +450,52 @@ async def is_new_posts():
 
                     for channel_id in posts_for_pubblishing:
                         best_new_posts[channel_id] = uniqueByURL(best_new_posts[channel_id])
-                        if len(posts_for_pubblishing[channel_id]) != 0:
-                            # print(f'Post is sended to channel {id_to_name[channel_id]} at {datetime.now()}')
+                        if best_new_posts[channel_id]:
                             try:
                                 await send_post(channel_id, int(id_to_link[channel_id]),
-                                                posts_for_pubblishing[channel_id][-1])
-                                del posts_for_pubblishing[channel_id][-1]
-                                with open('MeMes_Telegram/posts.pickle', 'wb') as f:
-                                    pickle.dump(posts_for_pubblishing, f)
+                                                best_new_posts[channel_id][-1])
+                                del best_new_posts[channel_id][-1]
                             except aiogram.exceptions.RetryAfter as err:
                                 logging.warning('Post: CATCH FLOOD CONTROL for ' + str(err.timeout) + ' seconds')
                                 time.sleep(err.timeout)
                                 await send_post(channel_id, int(id_to_link[channel_id]),
-                                                posts_for_pubblishing[channel_id][-1])
-                                del posts_for_pubblishing[channel_id][-1]
-                                with open('MeMes_Telegram/posts.pickle', 'wb') as f:
-                                    pickle.dump(posts_for_pubblishing, f)
+                                                best_new_posts[channel_id][-1])
+                                del best_new_posts[channel_id][-1]
                             except aiogram.exceptions.BadRequest as err:
                                 await send_post(channel_id, int(id_to_link[channel_id]),
-                                                posts_for_pubblishing[channel_id][-1])
-                                del posts_for_pubblishing[channel_id][-1]
-                                with open('MeMes_Telegram/posts.pickle', 'wb') as f:
-                                    pickle.dump(posts_for_pubblishing, f)
+                                                best_new_posts[channel_id][channel_id][-1])
+                                del best_new_posts[channel_id][-1]
                             except errors.rpcerrorlist.ChatAdminRequiredError:
                                 print('\nYou must be admin of the channel to send messages!\n')
                                 break
-                            except Exception as err:
-                                print('fill_channels unknown error: '+ err)
-                            time.sleep(3)
+                            # except Exception as err:
+                            #     print('fill_channels unknown error: ' + str(err))
+                        else:
+                            if len(posts_for_pubblishing[channel_id]) != 0:
+                                # print(f'Post is sended to channel {id_to_name[channel_id]} at {datetime.now()}')
+                                try:
+                                    await send_post(channel_id, int(id_to_link[channel_id]),
+                                                    posts_for_pubblishing[channel_id][-1])
+                                    del posts_for_pubblishing[channel_id][-1]
+                                except aiogram.exceptions.RetryAfter as err:
+                                    logging.warning('Post: CATCH FLOOD CONTROL for ' + str(err.timeout) + ' seconds')
+                                    time.sleep(err.timeout)
+                                    await send_post(channel_id, int(id_to_link[channel_id]),
+                                                    posts_for_pubblishing[channel_id][-1])
+                                    del posts_for_pubblishing[channel_id][-1]
+                                except aiogram.exceptions.BadRequest as err:
+                                    await send_post(channel_id, int(id_to_link[channel_id]),
+                                                    posts_for_pubblishing[channel_id][-1])
+                                    del posts_for_pubblishing[channel_id][-1]
+                                except errors.rpcerrorlist.ChatAdminRequiredError:
+                                    print('\nYou must be admin of the channel to send messages!\n')
+                                    break
+                                # except Exception as err:
+                                #     print('fill_channels unknown error: ' + str(err))
+                        posts_for_pubblishing[channel_id] += best_new_posts[channel_id]
+                        with open('posts.pickle', 'wb') as f:
+                            pickle.dump(posts_for_pubblishing, f)
+                        time.sleep(3)
                 except errors.rpcerrorlist.ChatAdminRequiredError:
                     print('\nYou must be admin of the channel to send messages!\n')
             else:
@@ -467,7 +535,7 @@ if __name__ == '__main__':
             print('Clearing...')
             loop.run_until_complete(clear_channel())
             setAction('menu')
-            with open('MeMes_Telegram/posts.pickle', 'wb') as f:
+            with open('posts.pickle', 'wb') as f:
                 f.write(b'')
         elif action == 'menu':
             while True:
@@ -513,7 +581,7 @@ if __name__ == '__main__':
                             print('Clearing...')
                             loop.run_until_complete(clear_channel())
                             setAction('menu')
-                            with open('MeMes_Telegram/posts.pickle', 'wb') as f:
+                            with open('posts.pickle', 'wb') as f:
                                 f.write(b'')
                     else:
                         print('\nYou have to log in firstly!\n')
