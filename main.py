@@ -148,7 +148,7 @@ async def logIn() -> TelegramClient:
     Функция входа в телеграм аккаунт
     :return: обьект авторизированого клиента
     """
-    client = TelegramClient('MeMes_Telegram/admin', api_id, api_hash)
+    client = TelegramClient('admin', api_id, api_hash)
     client.flood_sleep_threshold = 0
     is_connected = client.is_connected()
     if not is_connected:
