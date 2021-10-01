@@ -60,10 +60,8 @@ new_posts = dict()
 for channel_id, _ in channels:
     new_posts[channel_id] = []
 
-
-
 try:
-    with open('posts.pickle', 'rb') as f:
+    with open('MeMes_Telegram/posts.pickle', 'rb') as f:
         posts_for_pubblishing = pickle.load(f)
 except EOFError:
     posts_for_pubblishing = dict()
@@ -405,7 +403,7 @@ async def is_new_posts():
         if now.hour in (8, 11, 17) and now.minute == 56:
             if was_working:
                 try:
-                    with open('posts.pickle', 'rb') as f:
+                    with open('MeMes_Telegram/posts.pickle', 'rb') as f:
                         posts_for_pubblishing = pickle.load(f)
                 except EOFError:
                     posts_for_pubblishing = dict()
@@ -440,7 +438,7 @@ async def is_new_posts():
                                                                        key=lambda post: post.smiles)
                             best_new_posts[channel_id] = sorted(best_new_posts[channel_id],
                                                                 key=lambda post: post.smiles)
-                            with open('posts.pickle', 'wb') as f:
+                            with open('MeMes_Telegram/posts.pickle', 'wb') as f:
                                 pickle.dump(posts_for_pubblishing, f)
                         except KeyError as e:
                             print(e)
@@ -493,7 +491,7 @@ async def is_new_posts():
                                 # except Exception as err:
                                 #     print('fill_channels unknown error: ' + str(err))
                         posts_for_pubblishing[channel_id] += best_new_posts[channel_id]
-                        with open('posts.pickle', 'wb') as f:
+                        with open('MeMes_Telegram/posts.pickle', 'wb') as f:
                             pickle.dump(posts_for_pubblishing, f)
                         time.sleep(3)
                 except errors.rpcerrorlist.ChatAdminRequiredError:
@@ -535,7 +533,7 @@ if __name__ == '__main__':
             print('Clearing...')
             loop.run_until_complete(clear_channel())
             setAction('menu')
-            with open('posts.pickle', 'wb') as f:
+            with open('MeMes_Telegram/posts.pickle', 'wb') as f:
                 f.write(b'')
         elif action == 'menu':
             while True:
@@ -581,7 +579,7 @@ if __name__ == '__main__':
                             print('Clearing...')
                             loop.run_until_complete(clear_channel())
                             setAction('menu')
-                            with open('posts.pickle', 'wb') as f:
+                            with open('MeMes_Telegram/posts.pickle', 'wb') as f:
                                 f.write(b'')
                     else:
                         print('\nYou have to log in firstly!\n')
