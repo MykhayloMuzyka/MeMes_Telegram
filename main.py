@@ -21,12 +21,12 @@ from memes import Api, ImageReader, Post
 
 
 def getAction() -> str:
-    with open('MeMes_Telegram/action.txt', 'r') as f:
+    with open('action.txt', 'r') as f:
         return f.read()
 
 
 def setAction(action: str):
-    with open('MeMes_Telegram/action.txt', 'w') as f:
+    with open('action.txt', 'w') as f:
         f.write(action)
 
 
@@ -61,7 +61,7 @@ for channel_id, _ in channels:
     new_posts[channel_id] = []
 
 try:
-    with open('MeMes_Telegram/posts.pickle', 'rb') as f:
+    with open('posts.pickle', 'rb') as f:
         posts_for_pubblishing = pickle.load(f)
 except EOFError:
     posts_for_pubblishing = dict()
@@ -260,13 +260,17 @@ async def fill_channels():
     try:
         all_memes = Api.all_posts()
         # all = 0
-        # for channel_id in all_memes:
-        #     s = []
-        #     for p in all_memes[channel_id]:
+        for channel_id in all_memes:
+            s = sorted(all_memes[channel_id], key=lambda post: post.publish_at)
+            # print(id_to_name[channel_id], s[-1].publish_at)
+            print(id_to_name[channel_id])
+            for i in range(20):
+                print(s[-(i+1)].url, s[-(i+1)].publish_at)
+            # for p in all_memes[channel_id]:
         #         # if (p.publish_at.year == 2021 and p.publish_at.day == 29 and p.publish_at.month == 9 and p.publish_at.hour > 18) and \
         #         # (p.publish_at.year == 2021 and p.publish_at.day == 30 and p.publish_at.month == 9 and p.publish_at.hour < 9):
         #         if p.publish_at.year == 2021 and p.publish_at.day == 30 and p.publish_at.month == 9:
-        #             posts_for_pubblishing[channel_id].append(p)
+        #            posts_for_pubblishing[channel_id].append(p)
         #     print(f'{id_to_name[channel_id]} - {len(posts_for_pubblishing[channel_id])}')
         #     all += len(s)
         # print(f"Всего: {all}")
@@ -284,7 +288,7 @@ async def fill_channels():
         # else:
         #     for i in range(1, len(a)):
         #         print(a[-i].url, a[-i].publish_at, a[-i].smiles)
-        # exit(0)
+        exit(0)
         all_new_posts = dict()
         best_new_posts = dict()
         for channel_id in all_memes:
@@ -299,8 +303,8 @@ async def fill_channels():
                     for post_num, post in enumerate(all_memes[channel_id]):
                         all_new_posts[channel_id].append(post)
                 best_new_posts[channel_id] = sorted(all_new_posts[channel_id], key=lambda post: post.smiles)
-                if len(best_new_posts[channel_id]) > 30:
-                    best_new_posts[channel_id] = best_new_posts[channel_id][len(best_new_posts[channel_id]) - 30:]
+                if len(best_new_posts[channel_id]) > 300:
+                    best_new_posts[channel_id] = best_new_posts[channel_id][len(best_new_posts[channel_id]) - 300:]
             except KeyError as e:
                 print(e)
         print('Filling channels...')
@@ -400,10 +404,10 @@ async def is_new_posts():
         if not was_working:
             break
         # print(f"\n{now.hour}:{now.minute}:{now.second}")
-        if now.hour in (8, 11, 17) and now.minute == 56:
+        if now.hour in (8, 11, 17, 15, 19, 12, 13, 14) and now.minute in (0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55):
             if was_working:
                 try:
-                    with open('MeMes_Telegram/posts.pickle', 'rb') as f:
+                    with open('posts.pickle', 'rb') as f:
                         posts_for_pubblishing = pickle.load(f)
                 except EOFError:
                     posts_for_pubblishing = dict()
@@ -438,7 +442,7 @@ async def is_new_posts():
                                                                        key=lambda post: post.smiles)
                             best_new_posts[channel_id] = sorted(best_new_posts[channel_id],
                                                                 key=lambda post: post.smiles)
-                            with open('MeMes_Telegram/posts.pickle', 'wb') as f:
+                            with open('posts.pickle', 'wb') as f:
                                 pickle.dump(posts_for_pubblishing, f)
                         except KeyError as e:
                             print(e)
@@ -448,7 +452,10 @@ async def is_new_posts():
 
                     for channel_id in posts_for_pubblishing:
                         best_new_posts[channel_id] = uniqueByURL(best_new_posts[channel_id])
+                        print(id_to_name[channel_id],
+                              len(posts_for_pubblishing[channel_id]), len(best_new_posts[channel_id]))
                         if best_new_posts[channel_id]:
+                            print('best_new')
                             try:
                                 await send_post(channel_id, int(id_to_link[channel_id]),
                                                 best_new_posts[channel_id][-1])
@@ -470,6 +477,7 @@ async def is_new_posts():
                             #     print('fill_channels unknown error: ' + str(err))
                         else:
                             if len(posts_for_pubblishing[channel_id]) != 0:
+                                print('all')
                                 # print(f'Post is sended to channel {id_to_name[channel_id]} at {datetime.now()}')
                                 try:
                                     await send_post(channel_id, int(id_to_link[channel_id]),
@@ -491,7 +499,10 @@ async def is_new_posts():
                                 # except Exception as err:
                                 #     print('fill_channels unknown error: ' + str(err))
                         posts_for_pubblishing[channel_id] += best_new_posts[channel_id]
-                        with open('MeMes_Telegram/posts.pickle', 'wb') as f:
+                        posts_for_pubblishing[channel_id] = sorted(posts_for_pubblishing[channel_id],
+                                                                   key=lambda post: post.smiles)
+                        print(len(posts_for_pubblishing[channel_id]))
+                        with open('posts.pickle', 'wb') as f:
                             pickle.dump(posts_for_pubblishing, f)
                         time.sleep(3)
                 except errors.rpcerrorlist.ChatAdminRequiredError:
@@ -514,6 +525,11 @@ def stopWorking():
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     client = loop.run_until_complete(logIn())
+    last = loop.run_until_complete(lastChannelsPublicationTime())
+    print(last)
+    for channel_link in last:
+        id = key_by_value(id_to_link, channel_link)
+        print(f'{id_to_name[id]}: {last[channel_link]}')
     while True:
         action = getAction()
         if action == 'filling':
@@ -533,7 +549,7 @@ if __name__ == '__main__':
             print('Clearing...')
             loop.run_until_complete(clear_channel())
             setAction('menu')
-            with open('MeMes_Telegram/posts.pickle', 'wb') as f:
+            with open('posts.pickle', 'wb') as f:
                 f.write(b'')
         elif action == 'menu':
             while True:
