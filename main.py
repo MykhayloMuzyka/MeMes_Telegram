@@ -260,12 +260,12 @@ async def fill_channels():
     try:
         all_memes = Api.all_posts()
         # all = 0
-        # for channel_id in all_memes:
-        #     s = sorted(all_memes[channel_id], key=lambda post: post.publish_at)
-        #     # print(id_to_name[channel_id], s[-1].publish_at)
-        #     print(id_to_name[channel_id])
-        #     for i in range(20):
-        #         print(s[-(i+1)].url, s[-(i+1)].publish_at)
+        for channel_id in all_memes:
+            s = sorted(all_memes[channel_id], key=lambda post: post.publish_at)
+            # print(id_to_name[channel_id], s[-1].publish_at)
+            print(id_to_name[channel_id])
+            for i in range(20):
+                print(s[-(i+1)].url, s[-(i+1)].publish_at)
             # for p in all_memes[channel_id]:
         #         # if (p.publish_at.year == 2021 and p.publish_at.day == 29 and p.publish_at.month == 9 and p.publish_at.hour > 18) and \
         #         # (p.publish_at.year == 2021 and p.publish_at.day == 30 and p.publish_at.month == 9 and p.publish_at.hour < 9):
@@ -288,7 +288,7 @@ async def fill_channels():
         # else:
         #     for i in range(1, len(a)):
         #         print(a[-i].url, a[-i].publish_at, a[-i].smiles)
-        # exit(0)
+        exit(0)
         all_new_posts = dict()
         best_new_posts = dict()
         for channel_id in all_memes:
@@ -403,8 +403,8 @@ async def is_new_posts():
         now = datetime.now() + timedelta(hours=2)
         if not was_working:
             break
-        # print(f"\n{now.hour}:{now.minute}:{now.second}")
-        if now.hour in (8, 11, 17) and now.minute == 56:
+        print(f"\n{now.hour}:{now.minute}:{now.second}")
+        if now.hour in (8, 11, 17, 20) and now.minute == 11:
             if was_working:
                 try:
                     with open('posts.pickle', 'rb') as f:
@@ -502,12 +502,12 @@ async def is_new_posts():
                         # posts_for_pubblishing[channel_id] = sorted(posts_for_pubblishing[channel_id],
                         #                                            key=lambda post: post.smiles)
                         print(len(posts_for_pubblishing[channel_id]))
-                        print('\n\n\n\n')
                         with open('posts.pickle', 'wb') as f:
                             pickle.dump(posts_for_pubblishing, f)
                         time.sleep(3)
                 except errors.rpcerrorlist.ChatAdminRequiredError:
                     print('\nYou must be admin of the channel to send messages!\n')
+                print('\n\n\n\n')
             else:
                 break
         time.sleep(60)
