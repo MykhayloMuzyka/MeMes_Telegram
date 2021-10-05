@@ -30,6 +30,24 @@ def setAction(action: str):
         f.write(action)
 
 
+def getCounters():
+    try:
+        with open('numbers.pickle', 'rb') as f:
+            res = pickle.load(f)
+    except EOFError:
+        res = dict()
+        for channel_id, _ in channels:
+            if channel_id != '6058bdbcf89e242f997d006d':
+                res[channel_id] = 0
+        res['featured'] = 0
+    return res
+
+
+def changeCounters(numbers: dict):
+    with open('numbers.pickle', 'wb') as f:
+        pickle.dump(numbers, f)
+
+
 logging.basicConfig(level=logging.DEBUG, format='%(name)s - %(levelname)s - %(message)s', filename='logging.log')
 
 logging.warning('Script was Started')
@@ -37,8 +55,7 @@ utc = pytz.UTC
 Api = Api()
 channels = Api.get_channels()
 
-global post_nums
-post_nums = 0
+# print(getCounters())
 
 id_to_link = dict()
 id_to_name = dict()
@@ -75,6 +92,32 @@ except FileNotFoundError:
         if channel_id != '6058bdbcf89e242f997d006d':
             posts_for_pubblishing[channel_id] = []
     posts_for_pubblishing['featured'] = []
+
+# all_memes = Api.all_posts()
+# for channel_id, _ in channels:
+#     if channel_id != '6058bdbcf89e242f997d006d':
+#         for post in all_memes[channel_id]:
+#             if post.publish_at.year == 2021 and post.publish_at.month == 10 and post.publish_at.day == 5:
+#                 posts_for_pubblishing[channel_id].append(post)
+#         posts_for_pubblishing[channel_id] = sorted(posts_for_pubblishing[channel_id], key=lambda post: post.publish_at)
+#         print(id_to_name[channel_id])
+#         if len(posts_for_pubblishing[channel_id]) > 20:
+#             for i in range(20):
+#                 print(posts_for_pubblishing[channel_id][-(i+1)].url, posts_for_pubblishing[channel_id][-(i+1)].publish_at)
+#         else:
+#             for i in range(len(posts_for_pubblishing[channel_id])):
+#                 print(posts_for_pubblishing[channel_id][-(i+1)].url, posts_for_pubblishing[channel_id][-(i+1)].publish_at)
+
+        # print(id_to_name[channel_id], len(posts_for_pubblishing[channel_id]))
+
+# with open('posts.pickle', 'wb') as f:
+#     pickle.dump(posts_for_pubblishing, f)
+
+
+
+#     if channel_id != '6058bdbcf89e242f997d006d':
+#         posts_for_pubblishing[channel_id] = []
+
 
 # for channel_id in posts_for_pubblishing:
 #     print(id_to_name[channel_id])
@@ -143,6 +186,14 @@ def uniqueByURL(list_of_oblects: list) -> list:
     return res
 
 
+def getLastPostTime(posts):
+    last = posts[0].publish_at
+    for post in posts:
+        if post.publish_at > last:
+            last = post.publish_at
+    return last
+
+
 async def logIn() -> TelegramClient:
     """
     Функция входа в телеграм аккаунт
@@ -206,7 +257,8 @@ async def send_post(channel_id: str, chat: int, post: Post):
     :param post: экземпляр класса Post() который нужно отправить в телеграм
     :return: True при успешной отправке поста, False в ином случае
     """
-    global post_nums
+    numbers = getCounters()
+    post_nums = numbers[channel_id]
     post_filetype = post.url.strip()[-3:]
     if post_nums % 2 == 1:
         # if post.title:
@@ -218,7 +270,6 @@ async def send_post(channel_id: str, chat: int, post: Post):
         #     caption = "<b>" + str(post.title) + "</b>\n\n<a href='" + main_channnel_inv_link + "'>Подборка лучших приколов по категориям: Мемы Видео Девушки Животные Позалипать Жизненно Отношения</a>"
         # else:
         caption = "<a href='" + 'https://t.me/idaprikol_memes' + "'>Подборка лучших приколов по категориям: Мемы Видео Девушки Животные Позалипать Жизненно Отношения</a>"
-    post_nums += 1
 
     if post_filetype in ('jpg', 'png'):
         image = ImageReader(post)
@@ -247,6 +298,8 @@ async def send_post(channel_id: str, chat: int, post: Post):
             bot.send_animation(chat, post.url, caption=caption, parse_mode='HTML')
         except Exception as e:
             return False
+    numbers[channel_id] += 1
+    changeCounters(numbers)
     return True
 
 
@@ -260,12 +313,12 @@ async def fill_channels():
     try:
         all_memes = Api.all_posts()
         # all = 0
-        for channel_id in all_memes:
-            s = sorted(all_memes[channel_id], key=lambda post: post.publish_at)
-            # print(id_to_name[channel_id], s[-1].publish_at)
-            print(id_to_name[channel_id])
-            for i in range(20):
-                print(s[-(i+1)].url, s[-(i+1)].publish_at)
+        # for channel_id in all_memes:
+        #     s = sorted(all_memes[channel_id], key=lambda post: post.publish_at)
+        #     # print(id_to_name[channel_id], s[-1].publish_at)
+        #     print(id_to_name[channel_id])
+        #     for i in range(20):
+        #         print(s[-(i+1)].url, s[-(i+1)].publish_at)
             # for p in all_memes[channel_id]:
         #         # if (p.publish_at.year == 2021 and p.publish_at.day == 29 and p.publish_at.month == 9 and p.publish_at.hour > 18) and \
         #         # (p.publish_at.year == 2021 and p.publish_at.day == 30 and p.publish_at.month == 9 and p.publish_at.hour < 9):
@@ -288,7 +341,7 @@ async def fill_channels():
         # else:
         #     for i in range(1, len(a)):
         #         print(a[-i].url, a[-i].publish_at, a[-i].smiles)
-        exit(0)
+        # exit(0)
         all_new_posts = dict()
         best_new_posts = dict()
         for channel_id in all_memes:
@@ -403,7 +456,7 @@ async def is_new_posts():
         now = datetime.now() + timedelta(hours=2)
         if not was_working:
             break
-        print(f"\n{now.hour}:{now.minute}:{now.second}")
+        # print(f"\n{now.hour}:{now.minute}:{now.second}")
         if now.hour in (8, 11, 17) and now.minute == 56:
             if was_working:
                 try:
@@ -423,20 +476,23 @@ async def is_new_posts():
                     all_new_posts = dict()
                     best_new_posts = dict()
                     for channel_id in all_memes:
+                        # print(id_to_name[channel_id])
                         all_new_posts[channel_id] = []
                         try:
                             if lastPostTimes[id_to_link[channel_id]]:
                                 lastPostTime = lastPostTimes[id_to_link[channel_id]]
+                                # print(lastPostTime)
                                 for post_num, post in enumerate(all_memes[channel_id]):
                                     if utc.localize(post.publish_at) > lastPostTime:
+                                        # print(lastPostTime, utc.localize(post.publish_at))
                                         all_new_posts[channel_id].append(post)
                             else:
                                 for post_num, post in enumerate(all_memes[channel_id]):
                                     all_new_posts[channel_id].append(post)
                             best_new_posts[channel_id] = sorted(all_new_posts[channel_id], key=lambda post: post.smiles)
-                            if len(best_new_posts[channel_id]) > 50:
+                            if len(best_new_posts[channel_id]) > 100:
                                 best_new_posts[channel_id] = best_new_posts[channel_id][
-                                                             len(best_new_posts[channel_id]) - 50:]
+                                                             len(best_new_posts[channel_id]) - 100:]
                             # posts_for_pubblishing[channel_id] += best_new_posts[channel_id]
                             # posts_for_pubblishing[channel_id] = sorted(posts_for_pubblishing[channel_id],
                             #                                            key=lambda post: post.smiles)
@@ -447,13 +503,25 @@ async def is_new_posts():
                         except KeyError as e:
                             print(e)
 
+                        best_new_posts[channel_id] = sorted(best_new_posts[channel_id],
+                                                                   key=lambda post: post.publish_at)
+                        # if len(best_new_posts[channel_id]) > 20:
+                        #     for i in range(20):
+                        #         print(best_new_posts[channel_id][-(i + 1)].url,
+                        #               best_new_posts[channel_id][-(i + 1)].publish_at)
+                        # else:
+                        #     for i in range(len(best_new_posts[channel_id])):
+                        #         print(best_new_posts[channel_id][-(i + 1)].url,
+                        #               best_new_posts[channel_id][-(i + 1)].publish_at)
+
+
                     # for channel_id in posts_for_pubblishing:
                     #     print(f"{id_to_name[channel_id]}: {len(posts_for_pubblishing[channel_id])}")
 
                     for channel_id in posts_for_pubblishing:
                         best_new_posts[channel_id] = uniqueByURL(best_new_posts[channel_id])
-                        print(id_to_name[channel_id],
-                              len(posts_for_pubblishing[channel_id]), len(best_new_posts[channel_id]))
+                        # print(id_to_name[channel_id],
+                        #       len(posts_for_pubblishing[channel_id]), len(best_new_posts[channel_id]))
                         if best_new_posts[channel_id]:
                             print('best_new')
                             try:
@@ -501,7 +569,7 @@ async def is_new_posts():
                         posts_for_pubblishing[channel_id] += best_new_posts[channel_id]
                         # posts_for_pubblishing[channel_id] = sorted(posts_for_pubblishing[channel_id],
                         #                                            key=lambda post: post.smiles)
-                        print(len(posts_for_pubblishing[channel_id]))
+                        # print(len(posts_for_pubblishing[channel_id]))
                         with open('posts.pickle', 'wb') as f:
                             pickle.dump(posts_for_pubblishing, f)
                         time.sleep(3)
