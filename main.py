@@ -21,16 +21,26 @@ from memes import Api, ImageReader, Post
 
 
 def getAction() -> str:
+    """
+    Возвращает последние действие
+    """
     with open('action.txt', 'r') as f:
         return f.read()
 
 
 def setAction(action: str):
+    """
+    Перезаписывает последние действие
+    """
     with open('action.txt', 'w') as f:
         f.write(action)
 
 
-def getCounters():
+def getCounters() -> dict:
+    """
+    Считывает с файла numbers.pickle словарь
+    :return: каунтеры постов для каждого канала
+    """
     try:
         with open('numbers.pickle', 'rb') as f:
             res = pickle.load(f)
@@ -44,8 +54,49 @@ def getCounters():
 
 
 def changeCounters(numbers: dict):
+    """
+    Перезаписывает файл numbers.pickle
+    """
     with open('numbers.pickle', 'wb') as f:
         pickle.dump(numbers, f)
+
+
+def uniqueByURL(list_of_oblects: list) -> list:
+    """
+    Функция поиска и удаления дубикатов url постов из списка обьектов Post()
+    :param list_of_oblects: список обьектов типа Post()
+    :return: очищенный от дубликатов список
+    """
+    if len(list_of_oblects) == 0:
+        return []
+    res = [list_of_oblects[0]]
+    urls = [list_of_oblects[0].url]
+    for obj in list_of_oblects:
+        if obj.url not in urls:
+            res.append(obj)
+            urls.append(obj.url)
+    return res
+
+
+def getMemesByDate(year: int, month: int, day: int) -> dict:
+    """
+    Возвращает все посты за заданный день по всем категориям
+    :param year: год
+    :param month: месяц
+    :param day: день
+    :return: словарь (ключ - идентификатор канала, значения - все посты за заданый день по этой категории)
+    """
+    res = dict()
+    all_memes = Api.all_posts()
+    for channel_id, _ in channels:
+        if channel_id != '6058bdbcf89e242f997d006d':
+            res[channel_id] = []
+            for post in all_memes[channel_id]:
+                if post.publish_at.year == year and post.publish_at.month == month and post.publish_at.day == day:
+                    res[channel_id].append(post)
+            res[channel_id] = sorted(res[channel_id], key=lambda post: post.smiles)
+            res[channel_id] = uniqueByURL(res[channel_id])
+    return res
 
 
 logging.basicConfig(level=logging.DEBUG, format='%(name)s - %(levelname)s - %(message)s', filename='logging.log')
@@ -53,9 +104,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(name)s - %(levelname)s - %(me
 logging.warning('Script was Started')
 utc = pytz.UTC
 Api = Api()
-channels = Api.get_channels()
-
-# print(getCounters())
+channels = Api.get_channels() + [['featured', 'featured']]
 
 id_to_link = dict()
 id_to_name = dict()
@@ -92,38 +141,6 @@ except FileNotFoundError:
         if channel_id != '6058bdbcf89e242f997d006d':
             posts_for_pubblishing[channel_id] = []
     posts_for_pubblishing['featured'] = []
-
-# all_memes = Api.all_posts()
-# for channel_id, _ in channels:
-#     if channel_id != '6058bdbcf89e242f997d006d':
-#         for post in all_memes[channel_id]:
-#             if post.publish_at.year == 2021 and post.publish_at.month == 10 and post.publish_at.day == 5:
-#                 posts_for_pubblishing[channel_id].append(post)
-#         posts_for_pubblishing[channel_id] = sorted(posts_for_pubblishing[channel_id], key=lambda post: post.publish_at)
-#         print(id_to_name[channel_id])
-#         if len(posts_for_pubblishing[channel_id]) > 20:
-#             for i in range(20):
-#                 print(posts_for_pubblishing[channel_id][-(i+1)].url, posts_for_pubblishing[channel_id][-(i+1)].publish_at)
-#         else:
-#             for i in range(len(posts_for_pubblishing[channel_id])):
-#                 print(posts_for_pubblishing[channel_id][-(i+1)].url, posts_for_pubblishing[channel_id][-(i+1)].publish_at)
-
-        # print(id_to_name[channel_id], len(posts_for_pubblishing[channel_id]))
-
-# with open('posts.pickle', 'wb') as f:
-#     pickle.dump(posts_for_pubblishing, f)
-
-
-
-#     if channel_id != '6058bdbcf89e242f997d006d':
-#         posts_for_pubblishing[channel_id] = []
-
-
-# for channel_id in posts_for_pubblishing:
-#     print(id_to_name[channel_id])
-#     posts_for_pubblishing[channel_id] = sorted(posts_for_pubblishing[channel_id], key=lambda post: post.smiles)[::-1]
-#     for p in posts_for_pubblishing[channel_id]:
-#         print(p.url, p.publish_at, p.smiles)
 
 
 def key_by_value(dictionary, value):
@@ -166,23 +183,6 @@ async def lastChannelsPublicationTime() -> dict:
                             # проверка, являеться ли медиа фото
                             res[str(cid)] = m.date + timedelta(hours=3)
                         break
-    return res
-
-
-def uniqueByURL(list_of_oblects: list) -> list:
-    """
-    Функция поиска и удаления дубикатов url постов из списка обьектов Post()
-    :param list_of_oblects: список обьектов типа Post()
-    :return: очищенный от дубликатов список
-    """
-    if len(list_of_oblects) == 0:
-        return []
-    res = [list_of_oblects[0]]
-    urls = [list_of_oblects[0].url]
-    for obj in list_of_oblects:
-        if obj.url not in urls:
-            res.append(obj)
-            urls.append(obj.url)
     return res
 
 
@@ -261,14 +261,8 @@ async def send_post(channel_id: str, chat: int, post: Post):
     post_nums = numbers[channel_id]
     post_filetype = post.url.strip()[-3:]
     if post_nums % 2 == 1:
-        # if post.title:
-        #     caption = "<b>" + str(post.title) + "</b>\n\n<a href='" + main_channnel_inv_link + "'>Улётные приколы😂</a>"
-        # else:
         caption = "<a href='" + main_channnel_inv_link + "'>Улётные приколы😂</a>"
     else:
-        # if post.title:
-        #     caption = "<b>" + str(post.title) + "</b>\n\n<a href='" + main_channnel_inv_link + "'>Подборка лучших приколов по категориям: Мемы Видео Девушки Животные Позалипать Жизненно Отношения</a>"
-        # else:
         caption = "<a href='" + 'https://t.me/idaprikol_memes' + "'>Подборка лучших приколов по категориям: Мемы Видео Девушки Животные Позалипать Жизненно Отношения</a>"
 
     if post_filetype in ('jpg', 'png'):
@@ -312,36 +306,6 @@ async def fill_channels():
     lastPostTimes = await lastChannelsPublicationTime()
     try:
         all_memes = Api.all_posts()
-        # all = 0
-        # for channel_id in all_memes:
-        #     s = sorted(all_memes[channel_id], key=lambda post: post.publish_at)
-        #     # print(id_to_name[channel_id], s[-1].publish_at)
-        #     print(id_to_name[channel_id])
-        #     for i in range(20):
-        #         print(s[-(i+1)].url, s[-(i+1)].publish_at)
-            # for p in all_memes[channel_id]:
-        #         # if (p.publish_at.year == 2021 and p.publish_at.day == 29 and p.publish_at.month == 9 and p.publish_at.hour > 18) and \
-        #         # (p.publish_at.year == 2021 and p.publish_at.day == 30 and p.publish_at.month == 9 and p.publish_at.hour < 9):
-        #         if p.publish_at.year == 2021 and p.publish_at.day == 30 and p.publish_at.month == 9:
-        #            posts_for_pubblishing[channel_id].append(p)
-        #     print(f'{id_to_name[channel_id]} - {len(posts_for_pubblishing[channel_id])}')
-        #     all += len(s)
-        # print(f"Всего: {all}")
-        # with open('posts.pickle', 'wb') as f:
-        #     pickle.dump(posts_for_pubblishing, f)
-
-        # s = sorted(s, key=lambda post: post.smiles)
-        # a = []
-        # for po in s:
-        #     if po.url[len(po.url)-3:] == 'mp4':
-        #         a.append(po)
-        # if len(a) > 50:
-        #     for i in range(1, 51):
-        #         print(a[-i].url, a[-i].publish_at, a[-i].smiles)
-        # else:
-        #     for i in range(1, len(a)):
-        #         print(a[-i].url, a[-i].publish_at, a[-i].smiles)
-        # exit(0)
         all_new_posts = dict()
         best_new_posts = dict()
         for channel_id in all_memes:
@@ -452,130 +416,40 @@ async def is_new_posts():
     телеграм канала. Если публикация новая, то отправляеться в соответствующий канал.
     """
     while was_working:
-        # print(posts_for_pubblishing.values())
         now = datetime.now() + timedelta(hours=2)
-        if not was_working:
-            break
-        # print(f"\n{now.hour}:{now.minute}:{now.second}")
-        if now.hour in (8, 11, 17) and now.minute == 56:
+        if now.hour == 23 and now.minute == 58:
+            today_posts = getMemesByDate(now.year, now.month, now.day)
+            with open('posts.pickle', 'rb') as f:
+                posts_for_pubblishing = pickle.load(f)
+            for channel_id in posts_for_pubblishing:
+                posts_for_pubblishing[channel_id] += today_posts[channel_id]
+            with open('posts.pickle', 'wb') as f:
+                pickle.dump(posts_for_pubblishing, f)
+        elif now.hour in (9, 12, 18) and now.minute == 0:
             if was_working:
-                try:
-                    with open('posts.pickle', 'rb') as f:
-                        posts_for_pubblishing = pickle.load(f)
-                except EOFError:
-                    posts_for_pubblishing = dict()
-                    for channel_id, _ in channels:
-                        if channel_id != '6058bdbcf89e242f997d006d':
-                            posts_for_pubblishing[channel_id] = []
-                    posts_for_pubblishing['featured'] = []
-                # print(posts_for_pubblishing)
-                Api.result = dict()
-                lastPostTimes = await lastChannelsPublicationTime()
-                try:
-                    all_memes = Api.all_posts()
-                    all_new_posts = dict()
-                    best_new_posts = dict()
-                    for channel_id in all_memes:
-                        # print(id_to_name[channel_id])
-                        all_new_posts[channel_id] = []
+                with open('posts.pickle', 'rb') as f:
+                    posts_for_pubblishing = pickle.load(f)
+
+                for channel_id in posts_for_pubblishing:
+                    print(id_to_name[channel_id], len(posts_for_pubblishing[channel_id]))
+                    if posts_for_pubblishing[channel_id]:
                         try:
-                            if lastPostTimes[id_to_link[channel_id]]:
-                                lastPostTime = lastPostTimes[id_to_link[channel_id]]
-                                # print(lastPostTime)
-                                for post_num, post in enumerate(all_memes[channel_id]):
-                                    if utc.localize(post.publish_at) > lastPostTime:
-                                        # print(lastPostTime, utc.localize(post.publish_at))
-                                        all_new_posts[channel_id].append(post)
-                            else:
-                                for post_num, post in enumerate(all_memes[channel_id]):
-                                    all_new_posts[channel_id].append(post)
-                            best_new_posts[channel_id] = sorted(all_new_posts[channel_id], key=lambda post: post.smiles)
-                            if len(best_new_posts[channel_id]) > 100:
-                                best_new_posts[channel_id] = best_new_posts[channel_id][
-                                                             len(best_new_posts[channel_id]) - 100:]
-                            # posts_for_pubblishing[channel_id] += best_new_posts[channel_id]
-                            # posts_for_pubblishing[channel_id] = sorted(posts_for_pubblishing[channel_id],
-                            #                                            key=lambda post: post.smiles)
-                            best_new_posts[channel_id] = sorted(best_new_posts[channel_id],
-                                                                key=lambda post: post.smiles)
+                            await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][-1])
+                            del posts_for_pubblishing[channel_id][-1]
                             with open('posts.pickle', 'wb') as f:
                                 pickle.dump(posts_for_pubblishing, f)
-                        except KeyError as e:
-                            print(e)
-
-                        best_new_posts[channel_id] = sorted(best_new_posts[channel_id],
-                                                                   key=lambda post: post.publish_at)
-                        # if len(best_new_posts[channel_id]) > 20:
-                        #     for i in range(20):
-                        #         print(best_new_posts[channel_id][-(i + 1)].url,
-                        #               best_new_posts[channel_id][-(i + 1)].publish_at)
-                        # else:
-                        #     for i in range(len(best_new_posts[channel_id])):
-                        #         print(best_new_posts[channel_id][-(i + 1)].url,
-                        #               best_new_posts[channel_id][-(i + 1)].publish_at)
-
-
-                    # for channel_id in posts_for_pubblishing:
-                    #     print(f"{id_to_name[channel_id]}: {len(posts_for_pubblishing[channel_id])}")
-
-                    for channel_id in posts_for_pubblishing:
-                        best_new_posts[channel_id] = uniqueByURL(best_new_posts[channel_id])
-                        # print(id_to_name[channel_id],
-                        #       len(posts_for_pubblishing[channel_id]), len(best_new_posts[channel_id]))
-                        if best_new_posts[channel_id]:
-                            print('best_new')
-                            try:
-                                await send_post(channel_id, int(id_to_link[channel_id]),
-                                                best_new_posts[channel_id][-1])
-                                del best_new_posts[channel_id][-1]
-                            except aiogram.exceptions.RetryAfter as err:
-                                logging.warning('Post: CATCH FLOOD CONTROL for ' + str(err.timeout) + ' seconds')
-                                time.sleep(err.timeout)
-                                await send_post(channel_id, int(id_to_link[channel_id]),
-                                                best_new_posts[channel_id][-1])
-                                del best_new_posts[channel_id][-1]
-                            except aiogram.exceptions.BadRequest as err:
-                                await send_post(channel_id, int(id_to_link[channel_id]),
-                                                best_new_posts[channel_id][channel_id][-1])
-                                del best_new_posts[channel_id][-1]
-                            except errors.rpcerrorlist.ChatAdminRequiredError:
-                                print('\nYou must be admin of the channel to send messages!\n')
-                                break
-                            # except Exception as err:
-                            #     print('fill_channels unknown error: ' + str(err))
-                        else:
-                            if len(posts_for_pubblishing[channel_id]) != 0:
-                                print('all')
-                                # print(f'Post is sended to channel {id_to_name[channel_id]} at {datetime.now()}')
-                                try:
-                                    await send_post(channel_id, int(id_to_link[channel_id]),
-                                                    posts_for_pubblishing[channel_id][-1])
-                                    del posts_for_pubblishing[channel_id][-1]
-                                except aiogram.exceptions.RetryAfter as err:
-                                    logging.warning('Post: CATCH FLOOD CONTROL for ' + str(err.timeout) + ' seconds')
-                                    time.sleep(err.timeout)
-                                    await send_post(channel_id, int(id_to_link[channel_id]),
-                                                    posts_for_pubblishing[channel_id][-1])
-                                    del posts_for_pubblishing[channel_id][-1]
-                                except aiogram.exceptions.BadRequest as err:
-                                    await send_post(channel_id, int(id_to_link[channel_id]),
-                                                    posts_for_pubblishing[channel_id][-1])
-                                    del posts_for_pubblishing[channel_id][-1]
-                                except errors.rpcerrorlist.ChatAdminRequiredError:
-                                    print('\nYou must be admin of the channel to send messages!\n')
-                                    break
-                                # except Exception as err:
-                                #     print('fill_channels unknown error: ' + str(err))
-                        posts_for_pubblishing[channel_id] += best_new_posts[channel_id]
-                        # posts_for_pubblishing[channel_id] = sorted(posts_for_pubblishing[channel_id],
-                        #                                            key=lambda post: post.smiles)
-                        # print(len(posts_for_pubblishing[channel_id]))
-                        with open('posts.pickle', 'wb') as f:
-                            pickle.dump(posts_for_pubblishing, f)
-                        time.sleep(3)
-                except errors.rpcerrorlist.ChatAdminRequiredError:
-                    print('\nYou must be admin of the channel to send messages!\n')
-                print('\n\n\n\n')
+                        except aiogram.exceptions.RetryAfter as err:
+                            logging.warning('Post: CATCH FLOOD CONTROL for ' + str(err.timeout) + ' seconds')
+                            time.sleep(err.timeout)
+                            await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][-1])
+                            del posts_for_pubblishing[channel_id][-1]
+                            with open('posts.pickle', 'wb') as f:
+                                pickle.dump(posts_for_pubblishing, f)
+                        except aiogram.exceptions.BadRequest:
+                            await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][channel_id][-1])
+                            del posts_for_pubblishing[channel_id][-1]
+                            with open('posts.pickle', 'wb') as f:
+                                pickle.dump(posts_for_pubblishing, f)
             else:
                 break
         time.sleep(60)
@@ -594,11 +468,6 @@ def stopWorking():
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     client = loop.run_until_complete(logIn())
-    # last = loop.run_until_complete(lastChannelsPublicationTime())
-    # print(last)
-    # for channel_link in last:
-    #     id = key_by_value(id_to_link, channel_link)
-    #     print(f'{id_to_name[id]}: {last[channel_link]}')
     while True:
         action = getAction()
         if action == 'filling':
@@ -631,60 +500,60 @@ if __name__ == '__main__':
                             '\t6) Turn on the autopost\n'
                             '\t7) Quit the program\n'
                             'Enter the command: ').strip().lower()
-                # try:
-                if int(cmd.strip()) == 1:
-                    if not client:
-                        client = loop.run_until_complete(logIn())
-                    else:
-                        print('\nYou have already logged in!\n')
-                elif int(cmd.strip()) == 2:
-                    if client:
-                        loop.run_until_complete(logOut())
-                        client = None
-                    else:
-                        print('\nYou have to log in firstly!\n')
-                elif int(cmd.strip()) == 3:
-                    if client:
-                        msg = input('Enter your message: ')
-                        loop.run_until_complete(mail(msg))
-                    else:
-                        print('\nYou have to log in firstly!\n')
-                elif int(cmd.strip()) == 4:
-                    if client:
-                        setAction('filling')
-                        loop.run_until_complete(fill_channels())
-                        setAction('menu')
-                    else:
-                        print('\nYou have to log in firstly!\n')
-                elif int(cmd.strip()) == 5:
-                    if client:
-                        conf = input('Do you really want to clear all channels? y/n\n')
-                        if conf == 'y':
-                            setAction('clear')
-                            print('Clearing...')
-                            loop.run_until_complete(clear_channel())
+                try:
+                    if int(cmd.strip()) == 1:
+                        if not client:
+                            client = loop.run_until_complete(logIn())
+                        else:
+                            print('\nYou have already logged in!\n')
+                    elif int(cmd.strip()) == 2:
+                        if client:
+                            loop.run_until_complete(logOut())
+                            client = None
+                        else:
+                            print('\nYou have to log in firstly!\n')
+                    elif int(cmd.strip()) == 3:
+                        if client:
+                            msg = input('Enter your message: ')
+                            loop.run_until_complete(mail(msg))
+                        else:
+                            print('\nYou have to log in firstly!\n')
+                    elif int(cmd.strip()) == 4:
+                        if client:
+                            setAction('filling')
+                            loop.run_until_complete(fill_channels())
                             setAction('menu')
-                            with open('MeMes_Telegram/posts.pickle', 'wb') as f:
-                                f.write(b'')
-                    else:
-                        print('\nYou have to log in firstly!\n')
-                elif int(cmd.strip()) == 6:
-                    if client:
-                        setAction('autopost')
-                        was_working = True
-                        print('\nStart threading...')
-                        t = threading.Thread(target=stopWorking)
-                        t.start()
-                        loop.run_until_complete(is_new_posts())
-                        t.join()
-                        loop.run_until_complete(logOut())
-                        client = None
+                        else:
+                            print('\nYou have to log in firstly!\n')
+                    elif int(cmd.strip()) == 5:
+                        if client:
+                            conf = input('Do you really want to clear all channels? y/n\n')
+                            if conf == 'y':
+                                setAction('clear')
+                                print('Clearing...')
+                                loop.run_until_complete(clear_channel())
+                                setAction('menu')
+                                with open('MeMes_Telegram/posts.pickle', 'wb') as f:
+                                    f.write(b'')
+                        else:
+                            print('\nYou have to log in firstly!\n')
+                    elif int(cmd.strip()) == 6:
+                        if client:
+                            setAction('autopost')
+                            was_working = True
+                            print('\nStart threading...')
+                            t = threading.Thread(target=stopWorking)
+                            t.start()
+                            loop.run_until_complete(is_new_posts())
+                            t.join()
+                            loop.run_until_complete(logOut())
+                            client = None
+                            setAction('menu')
+                        else:
+                            print('\nYou have to log in firstly!\n')
+                    elif int(cmd.strip()) == 7:
+                        print('Program is quited!')
                         setAction('menu')
-                    else:
-                        print('\nYou have to log in firstly!\n')
-                elif int(cmd.strip()) == 7:
-                    print('Program is quited!')
-                    setAction('menu')
-                    exit()
-        # except ValueError as e:
-        #     print(e)
+                        exit()
+                except ValueError as e:
+                    print('Command must be integer!')
