@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 from datetime import datetime, timedelta
+import getpass
 
 import aiogram
 import pytz
@@ -227,7 +228,7 @@ async def logIn() -> TelegramClient:
             try:
                 user = await client.sign_in(phone, code)
             except errors.SessionPasswordNeededError:
-                pw = input('Two step verification is enabled. Please enter your password: ')
+                pw = getpass.getpass('Two step verification is enabled. Please enter your password: ')
                 try:
                     user = await client.sign_in(password=pw)
                 except errors.rpcerrorlist.PasswordHashInvalidError:
