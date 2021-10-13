@@ -165,7 +165,10 @@ class Api:
                 requests_time += time.time() - start_request
                 content = posts['data']['content']
                 items = content['items']
-                next_page = content['paging']['cursors']['next']
+                try:
+                    next_page = content['paging']['cursors']['next']
+                except KeyError:
+                    print(channel_info, content['paging']['cursors'])
                 filtered = list(Post(item, channel_info[0]) for item in items)
                 all_posts += filtered
             self.result[channel_info[0]] = all_posts

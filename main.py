@@ -8,6 +8,7 @@ import threading
 import time
 from datetime import datetime, timedelta
 import getpass
+import os
 
 import aiogram
 import pytz
@@ -20,12 +21,14 @@ from telethon.tl.types import PeerChannel, MessageMediaPhoto, MessageMediaDocume
 from confgis.settings import *
 from memes import Api, ImageReader, Post
 
+here = os.path.dirname(os.path.abspath(__file__))
+
 
 def getAction() -> str:
     """
     Возвращает последние действие
     """
-    with open('action.txt', 'r') as f:
+    with open(os.path.join(here, "action.txt"), 'r') as f:
         return f.read()
 
 
@@ -33,7 +36,7 @@ def setAction(action: str):
     """
     Перезаписывает последние действие
     """
-    with open('action.txt', 'w') as f:
+    with open(os.path.join(here, "action.txt"), 'w') as f:
         f.write(action)
 
 
@@ -43,7 +46,7 @@ def getCounters() -> dict:
     :return: каунтеры постов для каждого канала
     """
     try:
-        with open('numbers.pickle', 'rb') as f:
+        with open(os.path.join(here, "numbers.pickle"), 'rb') as f:
             res = pickle.load(f)
     except EOFError:
         res = dict()
@@ -58,7 +61,7 @@ def changeCounters(numbers: dict):
     """
     Перезаписывает файл numbers.pickle
     """
-    with open('numbers.pickle', 'wb') as f:
+    with open(os.path.join(here, "numbers.pickle"), 'wb') as f:
         pickle.dump(numbers, f)
 
 
@@ -123,12 +126,9 @@ id_to_name['featured'] = 'featured'
 id_to_link['featured'] = favorite_id
 links = [i for i in channels_links.values()]
 client = None
-new_posts = dict()
-for channel_id, _ in channels:
-    new_posts[channel_id] = []
 
 try:
-    with open('posts.pickle', 'rb') as f:
+    with open(os.path.join(here, "posts.pickle"), 'rb') as f:
         posts_for_pubblishing = pickle.load(f)
 except EOFError:
     posts_for_pubblishing = dict()
@@ -413,44 +413,53 @@ async def clear_channel():
 
 async def is_new_posts():
     """
-    Вытягивает дату последней публикации с приложения по каждой категории и сверяет с датой последней публикации
-    телеграм канала. Если публикация новая, то отправляеться в соответствующий канал.
+    В 00:00 каждые день пополняет словарь новыми постами. В 9:00, 12:00 и 18:00 заполняет каналы
     """
     while was_working:
         now = datetime.now() + timedelta(hours=2)
         if now.hour == 23 and now.minute == 58:
             today_posts = getMemesByDate(now.year, now.month, now.day)
-            with open('posts.pickle', 'rb') as f:
+            with open(os.path.join(here, "posts.pickle"), 'rb') as f:
                 posts_for_pubblishing = pickle.load(f)
+            old_lengths = dict()
+            for c in posts_for_pubblishing:
+                old_lengths[c] = len(posts_for_pubblishing[c])
             for channel_id in posts_for_pubblishing:
                 posts_for_pubblishing[channel_id] += today_posts[channel_id]
-            with open('posts.pickle', 'wb') as f:
+            with open(os.path.join(here, "posts.pickle"), 'wb') as f:
                 pickle.dump(posts_for_pubblishing, f)
+
+            print(f'\nAdded new posts at {now}')
+            for c in posts_for_pubblishing:
+                print(f'\t{id_to_name[c]} {old_lengths[c]} + {len(today_posts[c])} = {len(posts_for_pubblishing[c])}')
+            print('\n')
+
         elif now.hour in (9, 12, 18) and now.minute == 0:
             if was_working:
-                with open('posts.pickle', 'rb') as f:
+                with open(os.path.join(here, "posts.pickle"), 'rb') as f:
                     posts_for_pubblishing = pickle.load(f)
-
+                print(now)
                 for channel_id in posts_for_pubblishing:
                     print(id_to_name[channel_id], len(posts_for_pubblishing[channel_id]))
                     if posts_for_pubblishing[channel_id]:
                         try:
                             await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][-1])
                             del posts_for_pubblishing[channel_id][-1]
-                            with open('posts.pickle', 'wb') as f:
+                            with open(os.path.join(here, "posts.pickle"), 'wb') as f:
                                 pickle.dump(posts_for_pubblishing, f)
                         except aiogram.exceptions.RetryAfter as err:
                             logging.warning('Post: CATCH FLOOD CONTROL for ' + str(err.timeout) + ' seconds')
                             time.sleep(err.timeout)
                             await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][-1])
                             del posts_for_pubblishing[channel_id][-1]
-                            with open('posts.pickle', 'wb') as f:
+                            with open(os.path.join(here, "posts.pickle"), 'wb') as f:
                                 pickle.dump(posts_for_pubblishing, f)
                         except aiogram.exceptions.BadRequest:
                             await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][channel_id][-1])
                             del posts_for_pubblishing[channel_id][-1]
-                            with open('posts.pickle', 'wb') as f:
+                            with open(os.path.join(here, "posts.pickle"), 'wb') as f:
                                 pickle.dump(posts_for_pubblishing, f)
+                    print('\n')
             else:
                 break
         time.sleep(60)
@@ -467,6 +476,7 @@ def stopWorking():
 
 
 if __name__ == '__main__':
+
     loop = asyncio.get_event_loop()
     client = loop.run_until_complete(logIn())
     while True:
