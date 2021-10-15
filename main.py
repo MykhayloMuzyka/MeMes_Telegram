@@ -82,6 +82,23 @@ def uniqueByURL(list_of_oblects: list) -> list:
     return res
 
 
+Api = Api()
+channels = Api.get_channels() + [['featured', 'featured']]
+id_to_link = dict()
+id_to_name = dict()
+for ch_id, ch_name in channels:
+    id_to_name[ch_id] = ch_name
+    for name in channels_info:
+        if name in ch_name:
+            id_to_link[ch_id] = channels_info[name]['telegram']
+            channels_info[name]['api_id'] = ch_id
+channels_info['featured']['api_id'] = 'featured'
+id_to_name['featured'] = 'featured'
+id_to_link['featured'] = favorite_id
+links = [i for i in channels_links.values()]
+client = None
+
+
 def getMemesByDate(year: int, month: int, day: int) -> dict:
     """
     Возвращает все посты за заданный день по всем категориям
@@ -107,25 +124,9 @@ logging.basicConfig(level=logging.DEBUG, format='%(name)s - %(levelname)s - %(me
 
 logging.warning('Script was Started')
 utc = pytz.UTC
-Api = Api()
-channels = Api.get_channels() + [['featured', 'featured']]
 
-id_to_link = dict()
-id_to_name = dict()
 was_working = False
 bot = TeleBot(TOKEN)
-
-for ch_id, ch_name in channels:
-    id_to_name[ch_id] = ch_name
-    for name in channels_info:
-        if name in ch_name:
-            id_to_link[ch_id] = channels_info[name]['telegram']
-            channels_info[name]['api_id'] = ch_id
-channels_info['featured']['api_id'] = 'featured'
-id_to_name['featured'] = 'featured'
-id_to_link['featured'] = favorite_id
-links = [i for i in channels_links.values()]
-client = None
 
 try:
     with open(os.path.join(here, "posts.pickle"), 'rb') as f:
@@ -228,6 +229,7 @@ async def logIn() -> TelegramClient:
             try:
                 user = await client.sign_in(phone, code)
             except errors.SessionPasswordNeededError:
+                # pw = input('Two step verification is enabled. Please enter your password: ')
                 pw = getpass.getpass('Two step verification is enabled. Please enter your password: ')
                 try:
                     user = await client.sign_in(password=pw)
@@ -417,7 +419,7 @@ async def is_new_posts():
     """
     while was_working:
         now = datetime.now() + timedelta(hours=2)
-        if now.hour == 23 and now.minute == 58:
+        if now.hour == 23 and now.minute == 45:
             today_posts = getMemesByDate(now.year, now.month, now.day)
             with open(os.path.join(here, "posts.pickle"), 'rb') as f:
                 posts_for_pubblishing = pickle.load(f)
@@ -566,5 +568,12 @@ if __name__ == '__main__':
                         print('Program is quited!')
                         setAction('menu')
                         exit()
+                    elif int(cmd.strip()) == 8:
+                        with open(os.path.join(here, "posts.pickle"), 'rb') as f:
+                            posts = pickle.load(f)
+
+                        for c in posts:
+                            print(id_to_name[c], len(posts[c]))
+
                 except ValueError as e:
                     print('Command must be integer!')
