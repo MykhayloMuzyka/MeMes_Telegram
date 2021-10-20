@@ -24,7 +24,7 @@ from memes import Api, ImageReader, Post
 here = os.path.dirname(os.path.abspath(__file__))
 
 
-def getAction() -> str:
+def getAction():
     """
     Возвращает последние действие
     """
@@ -40,7 +40,7 @@ def setAction(action: str):
         f.write(action)
 
 
-def getCounters() -> dict:
+def getCounters():
     """
     Считывает с файла numbers.pickle словарь
     :return: каунтеры постов для каждого канала
@@ -65,7 +65,7 @@ def changeCounters(numbers: dict):
         pickle.dump(numbers, f)
 
 
-def uniqueByURL(list_of_oblects: list) -> list:
+def uniqueByURL(list_of_oblects: list):
     """
     Функция поиска и удаления дубикатов url постов из списка обьектов Post()
     :param list_of_oblects: список обьектов типа Post()
@@ -99,7 +99,7 @@ links = [i for i in channels_links.values()]
 client = None
 
 
-def getMemesByDate(year: int, month: int, day: int) -> dict:
+def getMemesByDate(year: int, month: int, day: int):
     """
     Возвращает все посты за заданный день по всем категориям
     :param year: год
@@ -181,7 +181,7 @@ def key_by_value(dictionary, value):
     return result
 
 
-async def lastChannelsPublicationTime() -> dict:
+async def lastChannelsPublicationTime():
     """
     Определяет время последнего поста в каждом канале
     :client: авторизированный клиент
@@ -218,7 +218,7 @@ def getLastPostTime(posts):
     return last
 
 
-async def logIn() -> TelegramClient:
+async def logIn():
     """
     Функция входа в телеграм аккаунт
     :return: обьект авторизированого клиента

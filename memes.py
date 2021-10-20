@@ -99,7 +99,8 @@ class ImageReader:
         return open(os.path.join(here, "img/cropped.jpg"), 'rb')
 
 
-def isDictFull(res: dict, num: int) -> bool:
+def isDictFull(res: dict, num: int)\
+        :
     """
     Проверяет, заполнен ли словарь до конца
     :param res: проверяеммый словарь
@@ -136,7 +137,7 @@ class Api:
 
         self.lower_limit = None
 
-    def get_channels(self) -> Union[list, bool]:
+    def get_channels(self):
         """
         :return: Список категорий в АПИ в виде ([id_1, name_1], [id_2, name_2], ...) или False в случае неудачи
         """
@@ -172,7 +173,7 @@ class Api:
                 all_posts += filtered
             self.result[channel_info[0]] = all_posts
 
-    def all_posts(self) -> dict:
+    def all_posts(self):
         """
         Проход по всем существующим постам в АПИ по всем имеющимся катерогиям
         для сббора всех постов
