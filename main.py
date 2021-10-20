@@ -155,6 +155,13 @@ except FileNotFoundError:
             posts_for_pubblishing[channel_id] = []
     posts_for_pubblishing['featured'] = []
 
+# for ch_id in posts_for_pubblishing:
+#     print(id_to_name[ch_id])
+#     c = 1
+#     for post in posts_for_pubblishing[ch_id]:
+#         print(f"{c}) {post.url} {post.publish_at} {post.smiles}")
+#         c += 1
+
 # del posts_for_pubblishing['featured'][-4]
 # with open(os.path.join(here, "posts.pickle"), 'wb') as f:
 #     pickle.dump(posts_for_pubblishing, f)
