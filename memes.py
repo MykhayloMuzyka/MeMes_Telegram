@@ -10,9 +10,11 @@ from datetime import datetime
 from typing import Union
 import pytz
 from confgis.settings import *
+import os
 
 links = [i for i in channels_links.values()]
 utc = pytz.UTC
+here = os.path.dirname(os.path.abspath(__file__))
 
 
 class Post:
@@ -47,10 +49,10 @@ class ImageReader:
         :param post: экземарял класса Post() который нужно обработать
         """
         img = urllib.request.urlopen(post.url).read()
-        out = open("img/img.jpg", "wb")
+        out = open(os.path.join(here, "img/img.jpg"), "wb")
         out.write(img)
         out.close()
-        self.path = 'img/img.jpg'
+        self.path = os.path.join(here, "img/img.jpg")
         self.pic = Image.open(self.path)
 
     def watermark(self):
@@ -60,16 +62,13 @@ class ImageReader:
         """
         start_time = time.time()
         img_main = Image.open(self.path)
-        img_template = Image.open('img/temp.jpg')  # шаблон вотермарки статически хранящийся в проекте
+        img_template = Image.open(os.path.join(here, "img/temp.jpg"))  # шаблон вотермарки статически хранящийся в проекте
         t_width, t_height = img_template.size
         width, height = img_main.size
         box = (width - t_width - 50, height - t_height - 50, width, height)
-        img_main.crop(box).save('img/corner.jpg')  # обрезка исходного изображения для увеличения скорости поиска
-        img_main = cv2.imread('img/corner.jpg')
-        img_gray = cv2.cvtColor(img_main, cv2.COLOR_BGR2GRAY)
-
-        img_template = cv2.imread('img/temp.jpg')
-        img_template = cv2.cvtColor(img_template, cv2.COLOR_BGR2GRAY)
+        img_main = img_main.crop(box)
+        img_gray = cv2.cvtColor(np.float32(img_main), cv2.COLOR_BGR2GRAY)
+        img_template = cv2.cvtColor(np.float32(img_template), cv2.COLOR_BGR2GRAY)
         w, h = img_template.shape[::-1]
         res = cv2.matchTemplate(img_gray, img_template, cv2.TM_CCOEFF_NORMED)
         loc = np.where(res >= 0.8)
@@ -77,7 +76,7 @@ class ImageReader:
         counter = 0
         for pt in points:
             counter += 1
-            cv2.rectangle(img_main, pt, (pt[0] + w, pt[1] + h), (255, 0, 0), 4)  # при первом совпадении выход из поиска
+            cv2.rectangle(np.float32(img_main), pt, (pt[0] + w, pt[1] + h), (255, 0, 0), 4)  # при первом совпадении выход из поиска
             break
         if counter == 1:  # если было совпадение поврат True
             logging.info(f'\t\tWATERMARK time = {float(time.time() - start_time).__round__(2) * 1000} ms')
@@ -94,10 +93,10 @@ class ImageReader:
         width, height = self.pic.size
         box = (0, 0, width, height - 20)
         crop_img = self.pic.crop(box)
-        crop_img.save('img/cropped.jpg', quality=90)
+        crop_img.save(os.path.join(here, "img/cropped.jpg"), quality=90)
         logging.info(f'\t\tCROP time = {float(time.time() - start_time).__round__(2) * 1000} ms')
 
-        return open('img/cropped.jpg', 'rb')
+        return open(os.path.join(here, "img/cropped.jpg"), 'rb')
 
 
 def isDictFull(res: dict, num: int) -> bool:

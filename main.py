@@ -128,6 +128,17 @@ utc = pytz.UTC
 was_working = False
 bot = TeleBot(TOKEN)
 
+# posts = getMemesByDate(2021, 10, 19)
+# for ch_id in posts:
+#     print(id_to_name[ch_id])
+#     c = 1
+#     for post in posts[ch_id]:
+#         print(f"{c}) {post.url} {post.publish_at} {post.smiles}")
+#         c += 1
+# with open(os.path.join(here, "posts.pickle"), 'wb') as f:
+#     pickle.dump(posts, f)
+
+
 try:
     with open(os.path.join(here, "posts.pickle"), 'rb') as f:
         posts_for_pubblishing = pickle.load(f)
@@ -143,6 +154,10 @@ except FileNotFoundError:
         if channel_id != '6058bdbcf89e242f997d006d':
             posts_for_pubblishing[channel_id] = []
     posts_for_pubblishing['featured'] = []
+
+# del posts_for_pubblishing['featured'][-4]
+# with open(os.path.join(here, "posts.pickle"), 'wb') as f:
+#     pickle.dump(posts_for_pubblishing, f)
 
 
 def key_by_value(dictionary, value):
