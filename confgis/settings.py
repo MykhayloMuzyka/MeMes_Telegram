@@ -28,7 +28,6 @@ channels_info = {
     'featured': {'telegram': '-1001467928277', 'api_id': None},
 }
 
-main_channnel_inv_link = 'https://t.me/memes_smeshnye_video'
 
 # fake
 # channels_links = {'девушки': '-1001553995377',
@@ -53,8 +52,6 @@ main_channnel_inv_link = 'https://t.me/memes_smeshnye_video'
 #     'отношения': {'telegram': '-1001542492554', 'api_id': None},
 #     'featured': {'telegram': '-1001161927885', 'api_id': None},
 # }
-#
-# main_channnel_inv_link = 'https://t.me/featured123'
 
 favorite_id = channels_links['featured']
 

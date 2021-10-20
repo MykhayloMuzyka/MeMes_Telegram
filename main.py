@@ -229,8 +229,8 @@ async def logIn() -> TelegramClient:
             try:
                 user = await client.sign_in(phone, code)
             except errors.SessionPasswordNeededError:
-                # pw = input('Two step verification is enabled. Please enter your password: ')
-                pw = getpass.getpass('Two step verification is enabled. Please enter your password: ')
+                pw = input('Two step verification is enabled. Please enter your password: ')
+                # pw = getpass.getpass('Two step verification is enabled. Please enter your password: ')
                 try:
                     user = await client.sign_in(password=pw)
                 except errors.rpcerrorlist.PasswordHashInvalidError:
@@ -263,10 +263,14 @@ async def send_post(channel_id: str, chat: int, post: Post):
     numbers = getCounters()
     post_nums = numbers[channel_id]
     post_filetype = post.url.strip()[-3:]
-    if post_nums % 2 == 1:
-        caption = "<a href='" + main_channnel_inv_link + "'>Улётные приколы😂</a>"
-    else:
+    if post_nums % 4 == 0:
         caption = "<a href='" + 'https://t.me/idaprikol_memes' + "'>Подборка лучших приколов по категориям: Мемы Видео Девушки Животные Позалипать Жизненно Отношения</a>"
+    elif post_nums % 4 == 1:
+        caption = "<a href='" + 'https://t.me/memes_smeshnye_video' + "'>Улётные приколы😂</a>"
+    elif post_nums % 4 == 2:
+        caption = "<a href='" + 'https://t.me/video_films_online' + "'>Фильмы бесплатно , без рекламы</a>"
+    else:
+        caption = "<a href='" + 'https://t.me/audiobooks_storage' + "'>Аудиокниги бесплатно, без рекламы</a>"
 
     if post_filetype in ('jpg', 'png'):
         image = ImageReader(post)
@@ -415,34 +419,25 @@ async def clear_channel():
 
 async def is_new_posts():
     """
-    В 00:00 каждые день пополняет словарь новыми постами. В 9:00, 12:00 и 18:00 заполняет каналы
+    В 08:00 каждые день пополняет словарь новыми постами. В 9:00, 12:00 и 18:00 заполняет каналы
     """
     while was_working:
         now = datetime.now() + timedelta(hours=2)
-        if now.hour == 23 and now.minute == 45:
-            today_posts = getMemesByDate(now.year, now.month, now.day)
+        yesterday = now - timedelta(days=1)
+        if now.hour == 8 and now.minute == 0:
+            today_posts = getMemesByDate(yesterday.year, yesterday.month, yesterday.month)
             with open(os.path.join(here, "posts.pickle"), 'rb') as f:
                 posts_for_pubblishing = pickle.load(f)
-            old_lengths = dict()
-            for c in posts_for_pubblishing:
-                old_lengths[c] = len(posts_for_pubblishing[c])
             for channel_id in posts_for_pubblishing:
                 posts_for_pubblishing[channel_id] += today_posts[channel_id]
             with open(os.path.join(here, "posts.pickle"), 'wb') as f:
                 pickle.dump(posts_for_pubblishing, f)
 
-            print(f'\nAdded new posts at {now}')
-            for c in posts_for_pubblishing:
-                print(f'\t{id_to_name[c]} {old_lengths[c]} + {len(today_posts[c])} = {len(posts_for_pubblishing[c])}')
-            print('\n')
-
         elif now.hour in (9, 12, 18) and now.minute == 0:
             if was_working:
                 with open(os.path.join(here, "posts.pickle"), 'rb') as f:
                     posts_for_pubblishing = pickle.load(f)
-                print(now)
                 for channel_id in posts_for_pubblishing:
-                    print(id_to_name[channel_id], len(posts_for_pubblishing[channel_id]))
                     if posts_for_pubblishing[channel_id]:
                         try:
                             await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][-1])
@@ -461,10 +456,9 @@ async def is_new_posts():
                             del posts_for_pubblishing[channel_id][-1]
                             with open(os.path.join(here, "posts.pickle"), 'wb') as f:
                                 pickle.dump(posts_for_pubblishing, f)
-                    print('\n')
+                time.sleep(60)
             else:
                 break
-        time.sleep(60)
 
 
 def stopWorking():
@@ -571,9 +565,10 @@ if __name__ == '__main__':
                     elif int(cmd.strip()) == 8:
                         with open(os.path.join(here, "posts.pickle"), 'rb') as f:
                             posts = pickle.load(f)
-
                         for c in posts:
                             print(id_to_name[c], len(posts[c]))
+                    else:
+                        print(f'No such command: {cmd.strip()}')
 
                 except ValueError as e:
                     print('Command must be integer!')
