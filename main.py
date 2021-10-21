@@ -128,7 +128,7 @@ utc = pytz.UTC
 was_working = False
 bot = TeleBot(TOKEN)
 
-# posts = getMemesByDate(2021, 10, 19)
+# posts = getMemesByDate(2021, 10, 20)
 # for ch_id in posts:
 #     print(id_to_name[ch_id])
 #     c = 1
@@ -137,7 +137,6 @@ bot = TeleBot(TOKEN)
 #         c += 1
 # with open(os.path.join(here, "posts.pickle"), 'wb') as f:
 #     pickle.dump(posts, f)
-
 
 try:
     with open(os.path.join(here, "posts.pickle"), 'rb') as f:
@@ -447,7 +446,7 @@ async def is_new_posts():
         now = datetime.now() + timedelta(hours=2)
         yesterday = now - timedelta(days=1)
         if now.hour == 8 and now.minute == 0:
-            today_posts = getMemesByDate(yesterday.year, yesterday.month, yesterday.month)
+            today_posts = getMemesByDate(yesterday.year, yesterday.month, yesterday.day)
             with open(os.path.join(here, "posts.pickle"), 'rb') as f:
                 posts_for_pubblishing = pickle.load(f)
             for channel_id in posts_for_pubblishing:
@@ -483,6 +482,31 @@ async def is_new_posts():
                 break
 
 
+async def sendOnePostToEachChannel():
+    with open(os.path.join(here, "posts.pickle"), 'rb') as f:
+        posts_for_pubblishing = pickle.load(f)
+    for channel_id in posts_for_pubblishing:
+        if posts_for_pubblishing[channel_id]:
+            try:
+                await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][-1])
+                del posts_for_pubblishing[channel_id][-1]
+                with open(os.path.join(here, "posts.pickle"), 'wb') as f:
+                    pickle.dump(posts_for_pubblishing, f)
+            except aiogram.exceptions.RetryAfter as err:
+                logging.warning('Post: CATCH FLOOD CONTROL for ' + str(err.timeout) + ' seconds')
+                time.sleep(err.timeout)
+                await send_post(channel_id, int(id_to_link[channel_id]), posts_for_pubblishing[channel_id][-1])
+                del posts_for_pubblishing[channel_id][-1]
+                with open(os.path.join(here, "posts.pickle"), 'wb') as f:
+                    pickle.dump(posts_for_pubblishing, f)
+            except aiogram.exceptions.BadRequest:
+                await send_post(channel_id, int(id_to_link[channel_id]),
+                                posts_for_pubblishing[channel_id][channel_id][-1])
+                del posts_for_pubblishing[channel_id][-1]
+                with open(os.path.join(here, "posts.pickle"), 'wb') as f:
+                    pickle.dump(posts_for_pubblishing, f)
+
+
 def stopWorking():
     global was_working
     print('Enter exit to stop the script')
@@ -494,7 +518,6 @@ def stopWorking():
 
 
 if __name__ == '__main__':
-
     loop = asyncio.get_event_loop()
     client = loop.run_until_complete(logIn())
     while True:
@@ -527,7 +550,8 @@ if __name__ == '__main__':
                             '\t4) Fill the channels for the 300 best posts each\n'
                             '\t5) Clear all messages from all channels\n'
                             '\t6) Turn on the autopost\n'
-                            '\t7) Quit the program\n'
+                            '\t7) Send one post to each channel\n'
+                            '\t8) Quit the program\n'
                             'Enter the command: ').strip().lower()
                 try:
                     if int(cmd.strip()) == 1:
@@ -581,10 +605,15 @@ if __name__ == '__main__':
                         else:
                             print('\nYou have to log in firstly!\n')
                     elif int(cmd.strip()) == 7:
+                        if client:
+                            loop.run_until_complete(sendOnePostToEachChannel())
+                        else:
+                            print('\nYou have to log in firstly!\n')
+                    elif int(cmd.strip()) == 8:
                         print('Program is quited!')
                         setAction('menu')
                         exit()
-                    elif int(cmd.strip()) == 8:
+                    elif int(cmd.strip()) == 9:
                         with open(os.path.join(here, "posts.pickle"), 'rb') as f:
                             posts = pickle.load(f)
                         for c in posts:
