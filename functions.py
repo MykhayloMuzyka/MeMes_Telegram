@@ -1,22 +1,16 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-import asyncio
 import logging
 import pickle
 import sys
-import threading
 import time
 from datetime import datetime, timedelta
-import getpass
 import os
 
 import aiogram
 import pytz
-import telebot
 from telebot import TeleBot
 from telethon import errors
-from telethon.sync import TelegramClient
-from telethon.tl.types import PeerChannel, MessageMediaPhoto, MessageMediaDocument
 
 from confgis.settings import *
 from memes import Api, ImageReader, Post
@@ -97,6 +91,7 @@ id_to_name['featured'] = 'featured'
 id_to_link['featured'] = favorite_id
 links = [i for i in channels_links.values()]
 client = None
+was_started = False
 
 
 def getMemesByDate(year: int, month: int, day: int):
@@ -126,9 +121,9 @@ logging.warning('Script was Started')
 utc = pytz.UTC
 
 was_working = False
-bot = TeleBot(TOKEN)
+bot = TeleBot(TOKEN_ADMIN)
 
-# posts = getMemesByDate(2021, 10, 20)
+# posts = getMemesByDate(2021, 10, 21)
 # for ch_id in posts:
 #     print(id_to_name[ch_id])
 #     c = 1
@@ -161,10 +156,6 @@ except FileNotFoundError:
 #         print(f"{c}) {post.url} {post.publish_at} {post.smiles}")
 #         c += 1
 
-# del posts_for_pubblishing['featured'][-4]
-# with open(os.path.join(here, "posts.pickle"), 'wb') as f:
-#     pickle.dump(posts_for_pubblishing, f)
-
 
 def key_by_value(dictionary, value):
     """
@@ -180,33 +171,27 @@ def key_by_value(dictionary, value):
     return result
 
 
-async def lastChannelsPublicationTime():
+# id = key_by_value(id_to_link, '-1001467928277')
+# del posts_for_pubblishing[id][-2]
+# del posts_for_pubblishing[id][-2]
+# with open(os.path.join(here, "posts.pickle"), 'wb') as f:
+#     pickle.dump(posts_for_pubblishing, f)
+
+
+def setLastChannelsPublicationTime(ch_link):
+    last_times = lastChannelsPublicationTime()
+    last_times[ch_link] = datetime.now()
+    with open(os.path.join(here, "lastPubsTime.pickle"), 'wb') as f:
+        pickle.dump(last_times, f)
+
+
+def lastChannelsPublicationTime():
     """
     Определяет время последнего поста в каждом канале
-    :client: авторизированный клиент
-    :channels: список ссылок на нужные каналы
     :return: словарь, где ключем являеться ссылка на канал, а значением - время последней публикации в нем
     """
-    res = dict()
-    # собираем все диалоги пользователя
-    dialogs = await client.get_dialogs()
-    for d in dialogs:
-        peer_id = d.message.peer_id
-        if isinstance(peer_id, PeerChannel):
-            # проверка, являеться ли диалог каналом
-            cid = "-100" + str(peer_id.channel_id)
-            if cid in links:
-                # собираем последние 100 сообщений канала
-                messages = await client.get_messages(peer_id.channel_id, limit=100)
-                res[str(cid)] = None
-                for m in messages:
-                    if m.media:
-                        # проверяем, присутствует ли в сообщении медиа
-                        if isinstance(m.media, MessageMediaPhoto) or isinstance(m.media, MessageMediaDocument):
-                            # проверка, являеться ли медиа фото
-                            res[str(cid)] = m.date + timedelta(hours=3)
-                        break
-    return res
+    with open(os.path.join(here, "lastPubsTime.pickle"), 'rb') as f:
+        return pickle.load(f)
 
 
 def getLastPostTime(posts):
@@ -215,63 +200,6 @@ def getLastPostTime(posts):
         if post.publish_at > last:
             last = post.publish_at
     return last
-
-
-async def logIn():
-    """
-    Функция входа в телеграм аккаунт
-    :return: обьект авторизированого клиента
-    """
-    client = TelegramClient('admin', api_id, api_hash)
-    client.flood_sleep_threshold = 0
-    is_connected = client.is_connected()
-    if not is_connected:
-        await client.connect()
-    auth = await client.is_user_authorized()
-    if not auth:
-        user = None
-        while user is None:
-            wright = False
-            while not wright:
-                try:
-                    phone = input('Enter your phone in format +380*********: ')
-                    await client.send_code_request(phone)
-                    wright = True
-                except errors.rpcerrorlist.PhoneNumberInvalidError:
-                    print('Wrong phone format!!!')
-                except Exception as e:
-                    print(e)
-            user = None
-            code = input('Enter the code you just received: ')
-            try:
-                int(code)
-            except Exception:
-                print('\nCode must be the number!\n')
-            try:
-                user = await client.sign_in(phone, code)
-            except errors.SessionPasswordNeededError:
-                # pw = input('Two step verification is enabled. Please enter your password: ')
-                pw = getpass.getpass('Two step verification is enabled. Please enter your password: ')
-                try:
-                    user = await client.sign_in(password=pw)
-                except errors.rpcerrorlist.PasswordHashInvalidError:
-                    print('Wrong password')
-                    time.sleep(5)
-                    await client.send_code_request(phone)
-            except errors.rpcerrorlist.PhoneCodeInvalidError:
-                print('\nWrong code!\n')
-                time.sleep(5)
-                await client.send_code_request(phone)
-    return client
-
-
-async def logOut():
-    """
-    Функция выхода из Телеграм аккаунта
-    """
-    await client.log_out()
-    if client.is_connected():
-        await client.disconnect()
 
 
 async def send_post(channel_id: str, chat: int, post: Post):
@@ -298,6 +226,7 @@ async def send_post(channel_id: str, chat: int, post: Post):
         if image.watermark():
             try:
                 bot.send_photo(chat, image.crop(), caption=caption, parse_mode='HTML')
+                setLastChannelsPublicationTime(str(chat))
             except Exception as e:
                 logging.info('Cant send', e)
                 return False
@@ -305,6 +234,7 @@ async def send_post(channel_id: str, chat: int, post: Post):
             logging.info('Post Don`t have watermark (no need to crop image) ' + post.url)
             try:
                 bot.send_photo(chat, post.url, caption=caption, parse_mode='HTML')
+                setLastChannelsPublicationTime(str(chat))
             except Exception as e:
                 logging.info('Cant send', e)
                 return False
@@ -312,12 +242,14 @@ async def send_post(channel_id: str, chat: int, post: Post):
     elif post_filetype == 'mp4':
         try:
             bot.send_video(chat, post.url, caption=caption, parse_mode='HTML')
+            setLastChannelsPublicationTime(str(chat))
         except Exception as e:
             logging.info('Cant send video', caption, e)
             return False
     elif post_filetype == 'gif':
         try:
             bot.send_animation(chat, post.url, caption=caption, parse_mode='HTML')
+            setLastChannelsPublicationTime(str(chat))
         except Exception as e:
             return False
     numbers[channel_id] += 1
@@ -331,7 +263,7 @@ async def fill_channels():
     """
     print('Gathering all memes...')
     Api.result = dict()
-    lastPostTimes = await lastChannelsPublicationTime()
+    lastPostTimes = lastChannelsPublicationTime()
     try:
         all_memes = Api.all_posts()
         all_new_posts = dict()
@@ -399,48 +331,9 @@ async def mail(msg: str):
         print('\nYou must be admin of the channel to send messages!\n')
 
 
-was_started = False
-
-
-async def clear_channel():
-    """
-    Очистка всех имеющихся каналов от всех сообщений
-    """
-    try:
-        print('\n')
-        dialogs = await client.get_dialogs()
-        counter_m = 0
-        for d in dialogs:
-            peer_id = d.message.peer_id
-            if isinstance(peer_id, PeerChannel):
-                cid = '-100' + str(peer_id.channel_id)
-                if cid in links:
-                    messages = [0, 0]
-                    while len(messages) > 1:
-                        messages = await client.get_messages(peer_id.channel_id, limit=400)
-                        # print(messages)
-                        amount = len(messages)
-                        for i, m in enumerate(messages):
-                            p = round((i + 1) / amount * 100)
-                            try:
-                                await client.delete_messages(int(cid), m.id)
-                                # bot.delete_message(int(-1001479498374), 1001)
-                            except telebot.apihelper.ApiException as e:
-                                print(e)
-                                # pass
-                            sys.stdout.write(
-                                '\r' + str(counter_m + 1) + ' of ' + str(len(links)) + ' channels is clearing: ' + str(
-                                    p) + '% ' + '#' * (
-                                    int(p // 2)) + '_' * (int(50 - p // 2)))
-                        time.sleep(1)
-                    counter_m += 1
-    except errors.rpcerrorlist.ChatAdminRequiredError:
-        print('\nYou must be admin of the channel to clear it!\n')
-
-
 async def is_new_posts():
     """
-    В 08:00 каждые день пополняет словарь новыми постами. В 9:00, 12:00 и 18:00 заполняет каналы
+    В 08:00 каждый день пополняет словарь новыми постами. В 9:00, 12:00 и 18:00 заполняет каналы
     """
     while was_working:
         now = datetime.now() + timedelta(hours=2)
@@ -480,6 +373,7 @@ async def is_new_posts():
                 time.sleep(60)
             else:
                 break
+    setAction('menu')
 
 
 async def sendOnePostToEachChannel():
@@ -507,119 +401,3 @@ async def sendOnePostToEachChannel():
                     pickle.dump(posts_for_pubblishing, f)
 
 
-def stopWorking():
-    global was_working
-    print('Enter exit to stop the script')
-    cmd = ''
-    while cmd != 'exit':
-        cmd = input()
-    print('Stopping...\nThis can take up to a minute')
-    was_working = False
-
-
-if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    client = loop.run_until_complete(logIn())
-    while True:
-        action = getAction()
-        if action == 'filling':
-            loop.run_until_complete(fill_channels())
-            setAction('menu')
-        elif action == 'autopost':
-            was_working = True
-            print('\nStart threading...')
-            t = threading.Thread(target=stopWorking)
-            t.start()
-            loop.run_until_complete(is_new_posts())
-            t.join()
-            loop.run_until_complete(logOut())
-            client = None
-            setAction('menu')
-        elif action == 'clear':
-            print('Clearing...')
-            loop.run_until_complete(clear_channel())
-            setAction('menu')
-            with open('posts.pickle', 'wb') as f:
-                f.write(b'')
-        elif action == 'menu':
-            while True:
-                cmd = input('\n\nMenu:\n'
-                            '\t1) Enter the Telegram account\n'
-                            '\t2) Log out of Telegram account\n'
-                            '\t3) Sending message to all channels\n'
-                            '\t4) Fill the channels for the 300 best posts each\n'
-                            '\t5) Clear all messages from all channels\n'
-                            '\t6) Turn on the autopost\n'
-                            '\t7) Send one post to each channel\n'
-                            '\t8) Quit the program\n'
-                            'Enter the command: ').strip().lower()
-                try:
-                    if int(cmd.strip()) == 1:
-                        if not client:
-                            client = loop.run_until_complete(logIn())
-                        else:
-                            print('\nYou have already logged in!\n')
-                    elif int(cmd.strip()) == 2:
-                        if client:
-                            loop.run_until_complete(logOut())
-                            client = None
-                        else:
-                            print('\nYou have to log in firstly!\n')
-                    elif int(cmd.strip()) == 3:
-                        if client:
-                            msg = input('Enter your message: ')
-                            loop.run_until_complete(mail(msg))
-                        else:
-                            print('\nYou have to log in firstly!\n')
-                    elif int(cmd.strip()) == 4:
-                        if client:
-                            setAction('filling')
-                            loop.run_until_complete(fill_channels())
-                            setAction('menu')
-                        else:
-                            print('\nYou have to log in firstly!\n')
-                    elif int(cmd.strip()) == 5:
-                        if client:
-                            conf = input('Do you really want to clear all channels? y/n\n')
-                            if conf == 'y':
-                                setAction('clear')
-                                print('Clearing...')
-                                loop.run_until_complete(clear_channel())
-                                setAction('menu')
-                                with open('MeMes_Telegram/posts.pickle', 'wb') as f:
-                                    f.write(b'')
-                        else:
-                            print('\nYou have to log in firstly!\n')
-                    elif int(cmd.strip()) == 6:
-                        if client:
-                            setAction('autopost')
-                            was_working = True
-                            print('\nStart threading...')
-                            t = threading.Thread(target=stopWorking)
-                            t.start()
-                            loop.run_until_complete(is_new_posts())
-                            t.join()
-                            loop.run_until_complete(logOut())
-                            client = None
-                            setAction('menu')
-                        else:
-                            print('\nYou have to log in firstly!\n')
-                    elif int(cmd.strip()) == 7:
-                        if client:
-                            loop.run_until_complete(sendOnePostToEachChannel())
-                        else:
-                            print('\nYou have to log in firstly!\n')
-                    elif int(cmd.strip()) == 8:
-                        print('Program is quited!')
-                        setAction('menu')
-                        exit()
-                    elif int(cmd.strip()) == 9:
-                        with open(os.path.join(here, "posts.pickle"), 'rb') as f:
-                            posts = pickle.load(f)
-                        for c in posts:
-                            print(id_to_name[c], len(posts[c]))
-                    else:
-                        print(f'No such command: {cmd.strip()}')
-
-                except ValueError as e:
-                    print('Command must be integer!')
