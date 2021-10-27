@@ -78,6 +78,11 @@ def working(msg):
         bot.send_message(msg.from_user.id, commands_list)
 
 
+@bot.message_handler(commands=['counts'])
+def counts(msg):
+    bot.send_message(msg.from_user.id, functions.counts())
+
+
 def poll():
     print('Bot polling...')
     bot.polling(none_stop=True)
@@ -92,7 +97,7 @@ if __name__ == '__main__':
         functions.was_working = True
         t = threading.Thread(target=poll)
         t.start()
-        target=loop.run_until_complete(functions.is_new_posts())
+        loop.run_until_complete(functions.is_new_posts())
         t.join()
     while True:
         try:

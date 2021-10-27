@@ -123,7 +123,7 @@ utc = pytz.UTC
 was_working = False
 bot = TeleBot(TOKEN_ADMIN)
 
-# posts = getMemesByDate(2021, 10, 21)
+# posts = getMemesByDate(2021, 10, 25)
 # for ch_id in posts:
 #     print(id_to_name[ch_id])
 #     c = 1
@@ -155,6 +155,15 @@ except FileNotFoundError:
 #     for post in posts_for_pubblishing[ch_id]:
 #         print(f"{c}) {post.url} {post.publish_at} {post.smiles}")
 #         c += 1
+
+
+def counts():
+    with open(os.path.join(here, "posts.pickle"), 'rb') as f:
+        temp_lists = pickle.load(f)
+    res = ''
+    for ch_id in temp_lists:
+        res += f'{id_to_name[ch_id]} {len(temp_lists[ch_id])}\n'
+    return res
 
 
 def key_by_value(dictionary, value):

@@ -20,16 +20,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="6d337525-9785-4eb3-abeb-55412bf298f8" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/bot.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/bot.py" beforeDir="false" afterPath="$PROJECT_DIR$/bot.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/confgis/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/confgis/settings.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/img/cropped.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/img/cropped.jpg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/img/img.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/img/img.jpg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/numbers.pickle" beforeDir="false" afterPath="$PROJECT_DIR$/numbers.pickle" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/posts.pickle" beforeDir="false" afterPath="$PROJECT_DIR$/posts.pickle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -56,7 +51,7 @@
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
-  <component name="RunManager" selected="Python.functions">
+  <component name="RunManager" selected="Python.bot">
     <configuration name="Unnamed" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="MeMes_Telegram" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -148,8 +143,8 @@
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.functions" />
         <item itemvalue="Python.bot" />
+        <item itemvalue="Python.functions" />
       </list>
     </recent_temporary>
   </component>
@@ -181,26 +176,26 @@
       <screen x="0" y="0" width="1536" height="824" />
     </state>
     <state x="223" y="67" width="1089" height="713" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1536.824@0.0.1536.824" timestamp="1634038542811" />
-    <state x="548" y="179" key="FileChooserDialogImpl" timestamp="1634499590332">
+    <state x="548" y="179" key="FileChooserDialogImpl" timestamp="1635241130852">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
-    <state x="548" y="179" key="FileChooserDialogImpl/0.0.1536.824@0.0.1536.824" timestamp="1634499590332" />
-    <state width="1515" height="99" key="GridCell.Tab.0.bottom" timestamp="1634909187900">
+    <state x="548" y="179" key="FileChooserDialogImpl/0.0.1536.824@0.0.1536.824" timestamp="1635241130852" />
+    <state width="1515" height="164" key="GridCell.Tab.0.bottom" timestamp="1635348680029">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
-    <state width="1515" height="99" key="GridCell.Tab.0.bottom/0.0.1536.824@0.0.1536.824" timestamp="1634909187900" />
-    <state width="1515" height="99" key="GridCell.Tab.0.center" timestamp="1634909187900">
+    <state width="1515" height="164" key="GridCell.Tab.0.bottom/0.0.1536.824@0.0.1536.824" timestamp="1635348680029" />
+    <state width="1515" height="164" key="GridCell.Tab.0.center" timestamp="1635348680029">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
-    <state width="1515" height="99" key="GridCell.Tab.0.center/0.0.1536.824@0.0.1536.824" timestamp="1634909187900" />
-    <state width="1515" height="99" key="GridCell.Tab.0.left" timestamp="1634909187900">
+    <state width="1515" height="164" key="GridCell.Tab.0.center/0.0.1536.824@0.0.1536.824" timestamp="1635348680029" />
+    <state width="1515" height="164" key="GridCell.Tab.0.left" timestamp="1635348680029">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
-    <state width="1515" height="99" key="GridCell.Tab.0.left/0.0.1536.824@0.0.1536.824" timestamp="1634909187900" />
-    <state width="1515" height="99" key="GridCell.Tab.0.right" timestamp="1634909187900">
+    <state width="1515" height="164" key="GridCell.Tab.0.left/0.0.1536.824@0.0.1536.824" timestamp="1635348680029" />
+    <state width="1515" height="164" key="GridCell.Tab.0.right" timestamp="1635348680029">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
-    <state width="1515" height="99" key="GridCell.Tab.0.right/0.0.1536.824@0.0.1536.824" timestamp="1634909187900" />
+    <state width="1515" height="164" key="GridCell.Tab.0.right/0.0.1536.824@0.0.1536.824" timestamp="1635348680029" />
     <state x="277" y="57" key="SettingsEditor" timestamp="1634905046623">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
