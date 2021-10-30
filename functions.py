@@ -123,7 +123,7 @@ utc = pytz.UTC
 was_working = False
 bot = TeleBot(TOKEN_ADMIN)
 
-# posts = getMemesByDate(2021, 10, 25)
+# posts = getMemesByDate(2021, 10, 28)
 # for ch_id in posts:
 #     print(id_to_name[ch_id])
 #     c = 1
@@ -180,9 +180,10 @@ def key_by_value(dictionary, value):
     return result
 
 
-# id = key_by_value(id_to_link, '-1001467928277')
-# del posts_for_pubblishing[id][-2]
-# del posts_for_pubblishing[id][-2]
+# id = key_by_value(id_to_link, '-1001252485999')
+# del posts_for_pubblishing[id][-1]
+# del posts_for_pubblishing[id][-4]
+# del posts_for_pubblishing[id][-7]
 # with open(os.path.join(here, "posts.pickle"), 'wb') as f:
 #     pickle.dump(posts_for_pubblishing, f)
 

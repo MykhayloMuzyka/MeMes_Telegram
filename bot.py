@@ -3,6 +3,9 @@ import functions
 import asyncio
 import threading
 from confgis.settings import *
+from requests.exceptions import ReadTimeout
+from datetime import datetime, timedelta
+import time
 
 bot = telebot.TeleBot(TOKEN_MANAGE)
 loop = asyncio.get_event_loop()
@@ -84,8 +87,12 @@ def counts(msg):
 
 
 def poll():
-    print('Bot polling...')
-    bot.polling(none_stop=True)
+    try:
+        print(f'{datetime.now() + timedelta(hours=2)}) Bot polling...')
+        bot.polling(none_stop=True)
+    except ReadTimeout:
+        print('ReadTimeout caught! Sleeping for 30 secs...')
+        time.sleep(30)
 
 
 if __name__ == '__main__':
