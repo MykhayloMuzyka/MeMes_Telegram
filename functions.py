@@ -112,6 +112,7 @@ def getMemesByDate(year: int, month: int, day: int):
                     res[channel_id].append(post)
             res[channel_id] = sorted(res[channel_id], key=lambda post: post.smiles)
             res[channel_id] = uniqueByURL(res[channel_id])
+        time.sleep(10)
     return res
 
 
@@ -123,7 +124,7 @@ utc = pytz.UTC
 was_working = False
 bot = TeleBot(TOKEN_ADMIN)
 
-# posts = getMemesByDate(2021, 10, 28)
+# posts = getMemesByDate(2021, 11, 4)
 # for ch_id in posts:
 #     print(id_to_name[ch_id])
 #     c = 1
@@ -180,12 +181,12 @@ def key_by_value(dictionary, value):
     return result
 
 
-# id = key_by_value(id_to_link, '-1001252485999')
-# del posts_for_pubblishing[id][-1]
-# del posts_for_pubblishing[id][-4]
-# del posts_for_pubblishing[id][-7]
-# with open(os.path.join(here, "posts.pickle"), 'wb') as f:
-#     pickle.dump(posts_for_pubblishing, f)
+id = key_by_value(id_to_link, '-1001367691516')
+del posts_for_pubblishing[id][-5]
+del posts_for_pubblishing[id][-6]
+del posts_for_pubblishing[id][-7]
+with open(os.path.join(here, "posts.pickle"), 'wb') as f:
+    pickle.dump(posts_for_pubblishing, f)
 
 
 def setLastChannelsPublicationTime(ch_link):
