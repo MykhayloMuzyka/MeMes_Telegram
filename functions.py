@@ -348,6 +348,7 @@ async def is_new_posts():
     """
     while was_working:
         now = datetime.now() + timedelta(hours=2)
+        print(now)
         yesterday = now - timedelta(days=1)
         if now.hour == 8 and now.minute == 0:
             today_posts = getMemesByDate(yesterday.year, yesterday.month, yesterday.day)
@@ -381,7 +382,6 @@ async def is_new_posts():
                             del posts_for_pubblishing[channel_id][-1]
                             with open(os.path.join(here, "posts.pickle"), 'wb') as f:
                                 pickle.dump(posts_for_pubblishing, f)
-                time.sleep(60)
             else:
                 break
     setAction('menu')
