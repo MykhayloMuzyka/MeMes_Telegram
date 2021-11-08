@@ -384,6 +384,7 @@ async def is_new_posts():
                                 pickle.dump(posts_for_pubblishing, f)
             else:
                 break
+            time.sleep(60)
     setAction('menu')
 
 
