@@ -143,7 +143,6 @@ class Api:
         """
         result = list()
         channels = requests.get(self.channels_url, headers=self.headers)
-        print(channels)
         if channels.status_code == 200:
             for item in channels.json()['data']['channels']['items']:
                 result.append([item['id'], item['name']])

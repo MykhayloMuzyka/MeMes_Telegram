@@ -181,12 +181,13 @@ def key_by_value(dictionary, value):
     return result
 
 
-# id = key_by_value(id_to_link, '-1001367691516')
-# del posts_for_pubblishing[id][-5]
-# del posts_for_pubblishing[id][-6]
-# del posts_for_pubblishing[id][-7]
-# with open(os.path.join(here, "posts.pickle"), 'wb') as f:
-#     pickle.dump(posts_for_pubblishing, f)
+# links = ['-1001470907718', '-1001294452856', '-1001252485999', '-1001367691516', '-1001351980116', '-1001467928277']
+# for link in links:
+#     id = key_by_value(id_to_link, link)
+#     for _ in range(5):
+#         del posts_for_pubblishing[id][-1]
+#         with open(os.path.join(here, "posts.pickle"), 'wb') as f:
+#             pickle.dump(posts_for_pubblishing, f)
 
 
 def setLastChannelsPublicationTime(ch_link):
