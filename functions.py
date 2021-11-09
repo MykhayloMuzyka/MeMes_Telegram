@@ -124,25 +124,25 @@ utc = pytz.UTC
 was_working = False
 bot = TeleBot(TOKEN_ADMIN)
 
-posts = getMemesByDate(2021, 11, 6)
-with open(os.path.join(here, "posts.pickle"), 'wb') as f:
-    pickle.dump(posts, f)
-
-today_posts = getMemesByDate(2021, 11, 7)
-with open(os.path.join(here, "posts.pickle"), 'rb') as f:
-    posts_for_pubblishing = pickle.load(f)
-for channel_id in posts_for_pubblishing:
-    posts_for_pubblishing[channel_id] += today_posts[channel_id]
-with open(os.path.join(here, "posts.pickle"), 'wb') as f:
-    pickle.dump(posts_for_pubblishing, f)
-
-today_posts = getMemesByDate(2021, 11, 8)
-with open(os.path.join(here, "posts.pickle"), 'rb') as f:
-    posts_for_pubblishing = pickle.load(f)
-for channel_id in posts_for_pubblishing:
-    posts_for_pubblishing[channel_id] += today_posts[channel_id]
-with open(os.path.join(here, "posts.pickle"), 'wb') as f:
-    pickle.dump(posts_for_pubblishing, f)
+# posts = getMemesByDate(2021, 11, 6)
+# with open(os.path.join(here, "posts.pickle"), 'wb') as f:
+#     pickle.dump(posts, f)
+#
+# today_posts = getMemesByDate(2021, 11, 7)
+# with open(os.path.join(here, "posts.pickle"), 'rb') as f:
+#     posts_for_pubblishing = pickle.load(f)
+# for channel_id in posts_for_pubblishing:
+#     posts_for_pubblishing[channel_id] += today_posts[channel_id]
+# with open(os.path.join(here, "posts.pickle"), 'wb') as f:
+#     pickle.dump(posts_for_pubblishing, f)
+#
+# today_posts = getMemesByDate(2021, 11, 8)
+# with open(os.path.join(here, "posts.pickle"), 'rb') as f:
+#     posts_for_pubblishing = pickle.load(f)
+# for channel_id in posts_for_pubblishing:
+#     posts_for_pubblishing[channel_id] += today_posts[channel_id]
+# with open(os.path.join(here, "posts.pickle"), 'wb') as f:
+#     pickle.dump(posts_for_pubblishing, f)
 
 
 try:
@@ -161,12 +161,12 @@ except FileNotFoundError:
             posts_for_pubblishing[channel_id] = []
     posts_for_pubblishing['featured'] = []
 
-for ch_id in posts_for_pubblishing:
-    print(id_to_name[ch_id])
-    c = 1
-    for post in posts_for_pubblishing[ch_id]:
-        print(f"{c}) {post.url} {post.publish_at} {post.smiles}")
-        c += 1
+# for ch_id in posts_for_pubblishing:
+#     print(id_to_name[ch_id])
+#     c = 1
+#     for post in posts_for_pubblishing[ch_id]:
+#         print(f"{c}) {post.url} {post.publish_at} {post.smiles}")
+#         c += 1
 
 # for ch_id in posts_for_pubblishing:
 #     print(id_to_name[ch_id])
