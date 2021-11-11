@@ -128,7 +128,7 @@ bot = TeleBot(TOKEN_ADMIN)
 # with open(os.path.join(here, "posts.pickle"), 'wb') as f:
 #     pickle.dump(posts, f)
 #
-# today_posts = getMemesByDate(2021, 11, 7)
+# today_posts = getMemesByDate(2021, 11, 9)
 # with open(os.path.join(here, "posts.pickle"), 'rb') as f:
 #     posts_for_pubblishing = pickle.load(f)
 # for channel_id in posts_for_pubblishing:
@@ -136,7 +136,7 @@ bot = TeleBot(TOKEN_ADMIN)
 # with open(os.path.join(here, "posts.pickle"), 'wb') as f:
 #     pickle.dump(posts_for_pubblishing, f)
 #
-# today_posts = getMemesByDate(2021, 11, 8)
+# today_posts = getMemesByDate(2021, 11, 10)
 # with open(os.path.join(here, "posts.pickle"), 'rb') as f:
 #     posts_for_pubblishing = pickle.load(f)
 # for channel_id in posts_for_pubblishing:
